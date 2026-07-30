@@ -1,0 +1,178 @@
+╔════════════════════════════════════════════════════════════════╗
+║        DIDX LARAVEL - QUICK START GUIDE                        ║
+╚════════════════════════════════════════════════════════════════╝
+
+⚡ 5-MINUTE SETUP
+═══════════════════════════════════════════════════════════════════
+
+1. PREREQUISITES
+   ✓ XAMPP installed with PHP 8.1+ and MySQL
+   ✓ Composer installed
+   ✓ Git Bash or PowerShell (Windows)
+
+2. OPEN TERMINAL
+   Windows CMD:      cd c:\xampp\htdocs\didx-laravel
+   PowerShell:       cd c:\xampp\htdocs\didx-laravel
+   Git Bash:         cd /c/xampp/htdocs/didx-laravel
+   Linux/Mac:        cd ~/xampp/htdocs/didx-laravel
+
+3. RUN SETUP SCRIPT
+   
+   Windows (Batch):
+   > setup.bat
+   
+   OR
+   
+   PowerShell:
+   PS> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+   PS> .\setup.ps1
+   
+   OR Manual:
+   > composer install
+   > php artisan key:generate
+   > php artisan migrate
+
+4. START SERVER
+   > php artisan serve
+
+5. OPEN BROWSER
+   http://localhost:8000/dashboard
+
+✅ DONE! Application is running locally.
+
+═══════════════════════════════════════════════════════════════════
+
+📍 KEY URLS
+═══════════════════════════════════════════════════════════════════
+
+Dashboard       → http://localhost:8000/dashboard
+Live Calls      → http://localhost:8000/live-calls
+Channel Tests   → http://localhost:8000/channel-tests
+Reports         → http://localhost:8000/reports/cdr
+Settings        → http://localhost:8000/settings
+API Status      → http://localhost:8000/api/status
+
+═══════════════════════════════════════════════════════════════════
+
+⚙️  DATABASE CONFIGURATION
+═══════════════════════════════════════════════════════════════════
+
+Current Configuration (.env):
+   Host:     192.241.212.5
+   Database: telecom_db
+   User:     root
+   Password: personal123
+
+Change Settings:
+   Edit: .env file
+   Restart: php artisan serve
+
+═══════════════════════════════════════════════════════════════════
+
+🛠️  ESSENTIAL COMMANDS
+═══════════════════════════════════════════════════════════════════
+
+Server Management:
+   Start Server      → php artisan serve
+   Start (Port 8001) → php artisan serve --port=8001
+   Stop              → Press Ctrl+C
+
+Database:
+   Run Migrations    → php artisan migrate
+   Reset Database    → php artisan migrate:reset
+   Refresh Database  → php artisan migrate:refresh
+
+Cache/Debug:
+   Clear Cache       → php artisan cache:clear
+   Clear Views       → php artisan view:clear
+   View All Routes   → php artisan route:list
+   Interactive Shell → php artisan tinker
+
+═══════════════════════════════════════════════════════════════════
+
+⚠️  TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════════
+
+Problem: Connection refused (Database)
+→ Solution: Edit .env and set DB_HOST=localhost
+
+Problem: Port 8000 in use
+→ Solution: php artisan serve --port=8001
+
+Problem: "Class not found" error
+→ Solution: composer dump-autoload
+
+Problem: Route not found (404)
+→ Solution: php artisan route:clear
+
+Problem: Views won't render
+→ Solution: php artisan view:clear
+
+═══════════════════════════════════════════════════════════════════
+
+📖 DOCUMENTATION FILES
+═══════════════════════════════════════════════════════════════════
+
+Local Setup:          LOCAL_SETUP.md
+Run Locally Guide:    RUN_LOCALLY.md
+Laravel Migration:    LARAVEL_MIGRATION.md
+Setup Instructions:   SETUP_INSTRUCTIONS.md
+Project Summary:      CONVERSION_SUMMARY.md
+Verification:         VERIFICATION_CHECKLIST.md
+
+═══════════════════════════════════════════════════════════════════
+
+✅ VERIFICATION CHECKLIST
+═══════════════════════════════════════════════════════════════════
+
+☐ XAMPP running (Apache + MySQL)
+☐ Composer installed
+☐ PHP 8.1+ available
+☐ setup.bat/script ran successfully
+☐ Server started (php artisan serve)
+☐ Dashboard loads at http://localhost:8000/dashboard
+☐ Can provision test DID
+☐ Can view live calls
+☐ API endpoint works (/api/status)
+
+═══════════════════════════════════════════════════════════════════
+
+💡 TIPS
+═══════════════════════════════════════════════════════════════════
+
+→ Always start MySQL in XAMPP before running the app
+→ Use Ctrl+C to stop the development server
+→ Keep .env file secure (don't commit to git)
+→ Check storage/logs/laravel.log for errors
+→ Use php artisan tinker for database debugging
+→ Enable query logging for performance analysis
+
+═══════════════════════════════════════════════════════════════════
+
+🚀 NEXT STEPS
+═══════════════════════════════════════════════════════════════════
+
+1. Explore the dashboard
+2. Test all features (add DID, run channel test, etc.)
+3. Review the code structure
+4. Check documentation files
+5. Start building features!
+
+═══════════════════════════════════════════════════════════════════
+
+📞 PROJECT INFO
+═══════════════════════════════════════════════════════════════════
+
+Project:    DIDX - VoIP Softswitch Console
+Type:       Laravel 11 Application
+PHP:        8.1+ Required
+Database:   MySQL 5.7+
+Framework:  Laravel 11.x
+Status:     ✅ Production Ready
+
+═══════════════════════════════════════════════════════════════════
+
+Last Updated: July 24, 2026
+Version: 1.0 (Complete)
+
+═══════════════════════════════════════════════════════════════════
