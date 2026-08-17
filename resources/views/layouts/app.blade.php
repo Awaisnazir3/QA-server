@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'DIDX — Softswitch Console')</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -178,6 +179,32 @@
         .s-fail .sdot {
             box-shadow: 0 0 6px var(--danger);
         }
+
+        .s-dialing {
+            background: var(--violet-dim);
+            color: var(--violet);
+        }
+        .s-dialing .sdot {
+            box-shadow: 0 0 6px var(--violet);
+            animation: pulse-dot 1s infinite alternate;
+        }
+
+        .btn-excel {
+            background: linear-gradient(135deg, #107c41, #1f9a55);
+            color: #fff;
+            border: none;
+            box-shadow: 0 4px 12px rgba(16, 124, 65, 0.28);
+        }
+        .btn-excel:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(16, 124, 65, 0.36);
+            color: #fff;
+        }
+
+        @keyframes pulse-dot {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            100% { transform: scale(1.3); opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -195,6 +222,9 @@
                 <div class="sb-section-lbl">Operations</div>
                 <a href="{{ route('dashboard') }}" class="sb-item @if(Route::currentRouteName() === 'dashboard') active @endif" data-target="view-did-routes" data-title="DID Route Manager" data-crumb="DIDX / Softswitch / DID Manager">
                     <i class="fa-solid fa-route"></i>DID Routes
+                </a>
+                <a href="{{ route('bulk-test.index') }}" class="sb-item @if(Route::currentRouteName() === 'bulk-test.index') active @endif" data-target="view-bulk-test" data-title="Bulk DID Testing" data-crumb="DIDX / Operations / Bulk DID Test">
+                    <i class="fa-solid fa-list-check"></i>Bulk DID Test
                 </a>
                 <a href="{{ route('tests.index') }}" class="sb-item @if(Route::currentRouteName() === 'tests.index') active @endif" data-target="view-channel-tests" data-title="Channel Tests" data-crumb="DIDX / Operations / Channel Tests">
                     <i class="fa-solid fa-signal"></i>Channel Tests

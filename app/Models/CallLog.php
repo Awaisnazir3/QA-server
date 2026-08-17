@@ -18,10 +18,12 @@ class CallLog extends Model
         'source_ip',
         'checked_channels',
         'caller_name',
+        'is_bulk',
     ];
 
     protected $casts = [
         'checked_channels' => 'integer',
+        'is_bulk' => 'boolean',
     ];
 
     public function channelTestLogs(): HasMany

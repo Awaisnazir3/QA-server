@@ -6,9 +6,16 @@ use App\Models\CallLog;
 use App\Models\ChannelTestLog;
 use App\Models\ChannelTestCdr;
 use Illuminate\Http\Request;
+use App\Services\AsteriskService;
 
 class ChannelTestController extends Controller
 {
+    protected $asterisk;
+
+    public function __construct(AsteriskService $asterisk)
+    {
+        $this->asterisk = $asterisk;
+    }
     /**
      * Display channel test history
      */
@@ -56,7 +63,7 @@ class ChannelTestController extends Controller
                  . " callerid \"{$originalCallerId}\""
                  . "' >> /tmp/chtest_{$phoneNumber}.log 2>&1 &";
 
-            @shell_exec($cmd);
+            $this->asterisk->execute($cmd);
 
             // Insert individual call CDR record
             ChannelTestCdr::create([
@@ -78,8 +85,8 @@ class ChannelTestController extends Controller
         $activeChannelsDetected = $this->countActiveChannels($phoneNumber);
 
         // Hangup all channels
-        @shell_exec("sudo /usr/sbin/asterisk -rx 'channel request hangup Local/{$phoneNumber}@outbound7788' 2>/dev/null");
-        @shell_exec("sudo /usr/sbin/asterisk -rx 'channel request hangup all' 2>/dev/null");
+        $this->asterisk->execute("sudo /usr/sbin/asterisk -rx 'channel request hangup Local/{$phoneNumber}@outbound7788' 2>/dev/null");
+        $this->asterisk->execute("sudo /usr/sbin/asterisk -rx 'channel request hangup all' 2>/dev/null");
 
         // Update call log with results
         $callLog->update([
@@ -105,7 +112,7 @@ class ChannelTestController extends Controller
      */
     private function countActiveChannels(string $phoneNumber): int
     {
-        $channelVerbose = @shell_exec("sudo /usr/sbin/asterisk -rx 'core show channels verbose' 2>/dev/null");
+        $channelVerbose = $this->asterisk->execute("sudo /usr/sbin/asterisk -rx 'core show channels verbose' 2>/dev/null");
         $count = 0;
 
         if ($channelVerbose) {

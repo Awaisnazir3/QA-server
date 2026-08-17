@@ -6,6 +6,7 @@ use App\Models\CallHistory;
 use App\Models\CallLog;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use App\Services\AsteriskService;
 
 class DialerController extends Controller
 {
@@ -29,7 +30,7 @@ class DialerController extends Controller
     /**
      * Make an outbound call via Asterisk Originate
      */
-    public function makeCall(Request $request): JsonResponse
+    public function makeCall(Request $request, AsteriskService $asterisk): JsonResponse
     {
         $request->validate([
             'caller_id' => 'required|string|regex:/^[0-9+]{1,15}$/',
@@ -69,21 +70,61 @@ class DialerController extends Controller
             'start_time' => now(),
         ]);
 
-        // Execute Asterisk Originate command
-        $channel = "PJSIP/{$route->phone_number}@outbound";
-        $context = "from-internal";
-        $exten = $calleeNumber;
-        $priority = "1";
-
-        $asteriskCmd = "sudo /usr/sbin/asterisk -rx 'channel originate " .
-            escapeshellarg($channel) . " " .
-            "application bridge " .
-            escapeshellarg("SIP/{$callerId}") . "' 2>/dev/null";
-
-        // On Windows, just simulate; on Linux, execute
-        if (strtoupper(substr(PHP_OS, 0, 3)) !== 'WIN') {
-            @shell_exec($asteriskCmd);
+        // Determine whether to use PJSIP or SIP based on endpoint registration
+        $tech = 'PJSIP';
+        $endpointsRaw = $asterisk->execute("sudo /usr/sbin/asterisk -rx 'pjsip show endpoints' 2>/dev/null");
+        $isPjsipRegistered = false;
+        if ($endpointsRaw) {
+            $lines = explode("\n", $endpointsRaw);
+            $foundExt = false;
+            foreach ($lines as $line) {
+                $line = trim($line);
+                if (preg_match('/^Endpoint:\s+([^\s]+)\s+/i', $line, $m)) {
+                    $foundExt = (trim($m[1]) === $extension);
+                }
+                if ($foundExt && preg_match('/^Contact:/i', $line)) {
+                    if (preg_match('/(Avail|Up|In use)/i', $line)) {
+                        $isPjsipRegistered = true;
+                    }
+                    break;
+                }
+            }
         }
+
+        if ($isPjsipRegistered) {
+            $tech = 'PJSIP';
+        } else {
+            // Check legacy SIP
+            $sipPeersRaw = $asterisk->execute("sudo /usr/sbin/asterisk -rx 'sip show peers' 2>/dev/null");
+            $isSipRegistered = false;
+            if ($sipPeersRaw) {
+                $lines = explode("\n", $sipPeersRaw);
+                foreach ($lines as $line) {
+                    $line = trim($line);
+                    if (preg_match('/^' . $extension . '(\/[^\s]+)?\s+([^\s]+)\s+.*?(OK|Reachable|Unmonitored)/i', $line)) {
+                        $isSipRegistered = true;
+                        break;
+                    }
+                }
+            }
+            if ($isSipRegistered) {
+                $tech = 'SIP';
+            }
+        }
+
+        $agentChannel = "{$tech}/{$extension}";
+
+        // Execute Asterisk Originate command:
+        // Ring the agent's extension first. When answered, bridge/dial the destination via outbound context.
+        // We set the CallerID (using the selected DID route phone number) on the originate command so the receiver sees it.
+        $asteriskCmd = "sudo /usr/sbin/asterisk -rx 'channel originate " .
+            escapeshellarg($agentChannel) . " " .
+            "extension " .
+            escapeshellarg("{$calleeNumber}@outbound7788") . " " .
+            "\"\" " .
+            escapeshellarg($callerId) . "' 2>/dev/null";
+
+        $asterisk->execute($asteriskCmd);
 
         // Update status to ringing
         $callHistory->update([
@@ -247,30 +288,19 @@ class DialerController extends Controller
     /**
      * Get extension status (online/offline)
      */
-    public function getExtensionStatus(Request $request): JsonResponse
+    public function getExtensionStatus(Request $request, AsteriskService $asterisk): JsonResponse
     {
         $request->validate([
             'extension' => 'required|string|regex:/^[0-9]{3,}$/',
         ]);
 
         $extension = $request->input('extension');
-        $status = 'unknown';
+        $status = 'offline';
         $contact = '—';
         $registered = false;
 
-        // On Windows, return mock status
-        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-            return response()->json([
-                'success' => true,
-                'extension' => $extension,
-                'status' => 'online',
-                'contact' => '192.168.1.100',
-                'registered' => true,
-            ]);
-        }
-
-        // On Linux, check real status
-        $endpointsRaw = @shell_exec("sudo /usr/sbin/asterisk -rx 'pjsip show endpoints' 2>/dev/null");
+        // Check PJSIP status via AsteriskService
+        $endpointsRaw = $asterisk->execute("sudo /usr/sbin/asterisk -rx 'pjsip show endpoints' 2>/dev/null");
         
         if ($endpointsRaw) {
             $lines = explode("\n", $endpointsRaw);
@@ -279,8 +309,9 @@ class DialerController extends Controller
             foreach ($lines as $line) {
                 $line = trim($line);
                 
-                if (preg_match('/^Endpoint:\s+' . $extension . '\s+(.+?)\s+\d+\s+of/i', $line)) {
-                    $foundExt = true;
+                // Identify each Endpoint block
+                if (preg_match('/^Endpoint:\s+([^\s]+)\s+/i', $line, $m)) {
+                    $foundExt = (trim($m[1]) === $extension);
                 }
                 
                 // If we found the extension, look for Contact line
@@ -298,6 +329,23 @@ class DialerController extends Controller
                     }
                     
                     break;
+                }
+            }
+        }
+
+        // Fallback: Check legacy SIP registry if PJSIP registration wasn't found
+        if (!$registered) {
+            $sipPeersRaw = $asterisk->execute("sudo /usr/sbin/asterisk -rx 'sip show peers' 2>/dev/null");
+            if ($sipPeersRaw) {
+                $lines = explode("\n", $sipPeersRaw);
+                foreach ($lines as $line) {
+                    $line = trim($line);
+                    if (preg_match('/^' . $extension . '(\/[^\s]+)?\s+([^\s]+)\s+.*?(OK|Reachable|Unmonitored)/i', $line, $m)) {
+                        $status = 'online';
+                        $registered = true;
+                        $contact = $m[2];
+                        break;
+                    }
                 }
             }
         }

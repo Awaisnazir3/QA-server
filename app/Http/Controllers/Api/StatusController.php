@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\CallLog;
 use Illuminate\Http\JsonResponse;
+use App\Services\AsteriskService;
 
 class StatusController extends Controller
 {
@@ -12,7 +13,7 @@ class StatusController extends Controller
      * Get call statuses and active calls count
      * This replaces get_status.php
      */
-    public function index(): JsonResponse
+    public function index(AsteriskService $asterisk): JsonResponse
     {
         $callLogs = CallLog::all();
         $statuses = [];
@@ -27,7 +28,7 @@ class StatusController extends Controller
 
         // Get active calls count
         $activeCalls = 0;
-        $channelsRaw = @shell_exec("sudo /usr/sbin/asterisk -rx 'core show channels' 2>/dev/null");
+        $channelsRaw = $asterisk->execute("sudo /usr/sbin/asterisk -rx 'core show channels' 2>/dev/null");
         if ($channelsRaw && preg_match('/([0-9]+)\s+active\s+calls?/i', $channelsRaw, $m)) {
             $activeCalls = (int)$m[1];
         }

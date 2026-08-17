@@ -3,9 +3,16 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Services\AsteriskService;
 
 class LiveCallController extends Controller
 {
+    protected $asterisk;
+
+    public function __construct(AsteriskService $asterisk)
+    {
+        $this->asterisk = $asterisk;
+    }
     /**
      * Display live active calls
      */
@@ -25,7 +32,7 @@ class LiveCallController extends Controller
     public function hangupAll(Request $request)
     {
         if ($request->getMethod() === 'POST') {
-            @shell_exec("sudo /usr/sbin/asterisk -rx 'channel request hangup all' 2>/dev/null");
+            $this->asterisk->execute("sudo /usr/sbin/asterisk -rx 'channel request hangup all' 2>/dev/null");
         }
 
         return redirect()->route('calls.live');
@@ -40,7 +47,7 @@ class LiveCallController extends Controller
 
         if (!empty($channel)) {
             $channel = preg_replace('/[^a-zA-Z0-9\/\-@_\.;]/', '', $channel);
-            @shell_exec("sudo /usr/sbin/asterisk -rx 'channel request hangup " . escapeshellarg($channel) . "' 2>/dev/null");
+            $this->asterisk->execute("sudo /usr/sbin/asterisk -rx 'channel request hangup " . escapeshellarg($channel) . "' 2>/dev/null");
         }
 
         return redirect()->route('calls.live');
@@ -51,12 +58,7 @@ class LiveCallController extends Controller
      */
     private function getActiveChannels(): array
     {
-        // On Windows, use mock data for development
-        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-            return $this->getMockActiveChannels();
-        }
-
-        $channelsRaw = @shell_exec("sudo /usr/sbin/asterisk -rx 'core show channels verbose' 2>/dev/null") ?: '';
+        $channelsRaw = $this->asterisk->execute("sudo /usr/sbin/asterisk -rx 'core show channels verbose' 2>/dev/null") ?: '';
         $parsedCalls = [];
 
         if ($channelsRaw) {
@@ -75,14 +77,5 @@ class LiveCallController extends Controller
         }
 
         return $parsedCalls;
-    }
-
-    /**
-     * Get mock active channels for Windows development
-     */
-    private function getMockActiveChannels(): array
-    {
-        // Return empty array on Windows (no mock active calls)
-        return [];
     }
 }

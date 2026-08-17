@@ -46,6 +46,11 @@
                 @csrf
                 <button type="submit" class="btn-hangup" id="hangupBtn"><i class="fa-solid fa-phone-slash"></i>Hangup All</button>
             </form>
+            <form method="POST" action="{{ route('dashboard.clear-all') }}" style="margin:0" onsubmit="return confirm('Are you sure you want to delete ALL active DID routes?')">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="btn-sm btn-del" style="padding:8px 14px;font-size:11.5px;font-weight:700"><i class="fa-solid fa-trash-can"></i>Clear All DIDs</button>
+            </form>
             <div class="cbadge">{{ $totalDids }} entries</div>
         </div>
     </div>

@@ -7,6 +7,7 @@ use App\Http\Controllers\ChannelTestController;
 use App\Http\Controllers\LiveCallController;
 use App\Http\Controllers\DialerController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\BulkTestController;
 
 // Redirect root to dashboard
 Route::redirect('/', '/dashboard');
@@ -16,6 +17,7 @@ Route::get('/dashboard', [DidRouteController::class, 'index'])->name('dashboard'
 Route::post('/dashboard/provision', [DidRouteController::class, 'provision'])->name('dashboard.provision');
 Route::post('/dashboard/{callLog}/mark-route', [DidRouteController::class, 'markAsRoute'])->name('dashboard.mark-route');
 Route::post('/dashboard/{callLog}/reset', [DidRouteController::class, 'resetStatus'])->name('dashboard.reset');
+Route::delete('/dashboard/clear-all', [DidRouteController::class, 'clearAll'])->name('dashboard.clear-all');
 Route::delete('/dashboard/{callLog}', [DidRouteController::class, 'destroy'])->name('dashboard.destroy');
 Route::post('/dashboard/hangup-all', [DidRouteController::class, 'hangupAll'])->name('dashboard.hangup-all');
 
@@ -51,4 +53,17 @@ Route::get('/sip-trunks', [DidRouteController::class, 'sipTrunks'])->name('sip-t
 
 // API Endpoints for Dashboard Auto-Updates
 Route::get('/api/status', [DidRouteController::class, 'apiStatus'])->name('api.status');
+
+// Bulk DID Testing
+Route::get('/bulk-test', [BulkTestController::class, 'index'])->name('bulk-test.index');
+Route::get('/api/bulk-test/status', [BulkTestController::class, 'apiStatus'])->name('api.bulk-status');
+Route::post('/bulk-test/add-single', [BulkTestController::class, 'addSingle'])->name('bulk-test.add-single');
+Route::post('/bulk-test/upload', [BulkTestController::class, 'upload'])->name('bulk-test.upload');
+Route::post('/bulk-test/reset-all', [BulkTestController::class, 'resetAll'])->name('bulk-test.reset-all');   // static — must be before {bulkDid}
+Route::delete('/bulk-test/clear-all', [BulkTestController::class, 'clearAll'])->name('bulk-test.clear-all'); // static — must be before {bulkDid}
+Route::get('/bulk-test/export', [BulkTestController::class, 'exportExcel'])->name('bulk-test.export');       // static — must be before {bulkDid}
+Route::post('/bulk-test/dial/{bulkDid}', [BulkTestController::class, 'dialSingle'])->name('bulk-test.dial-single');
+Route::post('/bulk-test/reset/{bulkDid}', [BulkTestController::class, 'reset'])->name('bulk-test.reset');
+Route::delete('/bulk-test/{bulkDid}', [BulkTestController::class, 'destroy'])->name('bulk-test.destroy');
+
 
