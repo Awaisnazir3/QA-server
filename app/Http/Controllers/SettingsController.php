@@ -32,7 +32,7 @@ class SettingsController extends Controller
 
         AdminUser::create([
             'username' => $validated['username'],
-            'password_hash' => password_hash($validated['password'], PASSWORD_BCRYPT),
+            'password' => bcrypt($validated['password']),
             'role' => $validated['role'],
         ]);
 
@@ -49,5 +49,22 @@ class SettingsController extends Controller
 
         return redirect()->route('settings.index')
             ->with('success', 'User removed successfully.');
+    }
+
+    /**
+     * Update admin user password
+     */
+    public function updatePassword(Request $request, AdminUser $user)
+    {
+        $validated = $request->validate([
+            'password' => 'required|string|min:6|confirmed',
+        ]);
+
+        $user->update([
+            'password' => bcrypt($validated['password']),
+        ]);
+
+        return redirect()->route('settings.index')
+            ->with('success', 'Password updated successfully!');
     }
 }

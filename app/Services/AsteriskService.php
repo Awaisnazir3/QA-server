@@ -2,8 +2,124 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Log;
+
 class AsteriskService
 {
+    /**
+     * Cached SSH connection for request lifecycle
+     */
+    protected static ?\phpseclib4\Net\SSH2 $cachedSsh = null;
+
+    /**
+     * Flag indicating SSH connection previously failed during this process
+     */
+    protected static bool $sshConnectionFailed = false;
+
+    /**
+     * Check if Asterisk is online and responding
+     */
+    public function isOnline(): bool
+    {
+        // Try HTTP status endpoint first if configured (fastest, no auth needed)
+        $statusUrl = env('ASTERISK_STATUS_URL');
+        if ($statusUrl) {
+            try {
+                $ctx = stream_context_create(['http' => ['timeout' => 2]]);
+                $res = @file_get_contents($statusUrl, false, $ctx);
+                if ($res !== false) {
+                    return trim($res) === 'active';
+                }
+            } catch (\Throwable $e) {
+                // fall through
+            }
+        }
+
+        $connection = env('ASTERISK_CONNECTION', 'local');
+        $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
+
+        // Check via SSH if enabled
+        if ($connection === 'ssh' || ($isWindows && env('ASTERISK_SSH_HOST'))) {
+            $ssh = $this->getSshConnection();
+            if ($ssh) {
+                try {
+                    $pid = trim($ssh->exec('pgrep -x asterisk 2>/dev/null'));
+                    return $pid !== '';
+                } catch (\Throwable $e) {
+                    Log::warning("Asterisk SSH isOnline check failed: " . $e->getMessage());
+                }
+            }
+
+            // On Windows, if remote SSH failed or unreachable, return mock status
+            if ($isWindows) {
+                return (bool) $this->getMockData('pgrep -x asterisk');
+            }
+
+            return false;
+        }
+
+        // On Windows without SSH config, use mock
+        if ($isWindows) {
+            return (bool) $this->getMockData('pgrep -x asterisk');
+        }
+
+        // Local Linux check
+        $pid = @shell_exec('pgrep -x asterisk 2>/dev/null');
+        return !empty(trim($pid ?? ''));
+    }
+
+    /**
+     * Get or create SSH connection
+     */
+    protected function getSshConnection(): ?\phpseclib4\Net\SSH2
+    {
+        if (static::$sshConnectionFailed) {
+            return null;
+        }
+
+        if (static::$cachedSsh !== null && static::$cachedSsh->isConnected()) {
+            return static::$cachedSsh;
+        }
+
+        $host = env('ASTERISK_SSH_HOST', '165.227.88.28');
+        $port = (int) env('ASTERISK_SSH_PORT', 22);
+        $user = env('ASTERISK_SSH_USER', 'root');
+        $keyPath = env('ASTERISK_SSH_KEY');
+        $password = env('ASTERISK_SSH_PASS');
+
+        if (!class_exists(\phpseclib4\Net\SSH2::class)) {
+            return null;
+        }
+
+        try {
+            $ssh = new \phpseclib4\Net\SSH2($host, $port, 3); // 3 second connection timeout
+            $ssh->setTimeout(3); // 3 second execution timeout
+
+            $loginResult = false;
+            if ($keyPath && file_exists($keyPath)) {
+                $key = \phpseclib4\Crypt\PublicKeyLoader::load(file_get_contents($keyPath));
+                $loginResult = $ssh->login($user, $key);
+            } elseif ($password) {
+                $loginResult = $ssh->login($user, $password);
+            } else {
+                $loginResult = $ssh->login($user);
+            }
+
+            if ($loginResult) {
+                static::$cachedSsh = $ssh;
+                return $ssh;
+            } else {
+                Log::warning("Asterisk SSH login failed for user '{$user}' on '{$host}:{$port}'");
+                static::$sshConnectionFailed = true;
+            }
+        } catch (\Throwable $e) {
+            Log::warning("Asterisk SSH connection failed to '{$host}:{$port}': " . $e->getMessage());
+            static::$sshConnectionFailed = true;
+        }
+
+        return null;
+    }
+
     /**
      * Execute a command on the Asterisk server (locally or via SSH)
      */
@@ -13,19 +129,43 @@ class AsteriskService
         $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
 
         if ($connection === 'ssh' || ($isWindows && env('ASTERISK_SSH_HOST'))) {
-            $host = env('ASTERISK_SSH_HOST', '165.227.88.28');
-            $port = env('ASTERISK_SSH_PORT', 22);
-            $user = env('ASTERISK_SSH_USER', 'root');
-            $keyPath = env('ASTERISK_SSH_KEY');
-            
-            // Build SSH command
-            $sshCmd = "ssh -p {$port} -o ConnectTimeout=5 -o StrictHostKeyChecking=no";
-            if ($keyPath) {
-                $sshCmd .= " -i " . escapeshellarg($keyPath);
+            $ssh = $this->getSshConnection();
+
+            if ($ssh) {
+                try {
+                    $cmd = trim($command);
+                    $user = env('ASTERISK_SSH_USER', 'root');
+                    $password = env('ASTERISK_SSH_PASS');
+
+                    if ($user !== 'root' && $password && strpos($cmd, 'sudo ') === 0) {
+                        $inner = substr($cmd, 5);
+                        $cmd = 'echo ' . escapeshellarg($password) . ' | sudo -S bash -c ' . escapeshellarg($inner);
+                    }
+                    $output = $ssh->exec($cmd);
+                    return $output !== false && $output !== null ? $output : '';
+                } catch (\Throwable $e) {
+                    Log::warning("Asterisk SSH command execution failed: " . $e->getMessage());
+                }
             }
-            $sshCmd .= " " . escapeshellarg("{$user}@{$host}") . " " . escapeshellarg($command);
-            
-            return @shell_exec($sshCmd) ?: '';
+
+            // Fallback to CLI SSH on Linux only
+            if (!$isWindows && !empty(env('ASTERISK_SSH_HOST'))) {
+                $host = env('ASTERISK_SSH_HOST');
+                $port = (int) env('ASTERISK_SSH_PORT', 22);
+                $user = env('ASTERISK_SSH_USER', 'root');
+                $keyPath = env('ASTERISK_SSH_KEY');
+
+                $sshCmd = "ssh -p {$port} -o ConnectTimeout=3 -o StrictHostKeyChecking=no";
+                if ($keyPath) {
+                    $sshCmd .= " -i " . escapeshellarg($keyPath);
+                }
+                $sshCmd .= " " . escapeshellarg("{$user}@{$host}") . " " . escapeshellarg($command);
+
+                $res = @shell_exec($sshCmd);
+                if ($res !== null && $res !== false) {
+                    return $res;
+                }
+            }
         }
 
         if ($isWindows) {
@@ -42,6 +182,16 @@ class AsteriskService
      */
     protected function getMockData(string $command): string
     {
+        // Mock systemctl status
+        if (strpos($command, 'pgrep -x asterisk') !== false) {
+            return '12345'; // Return a fake PID meaning process is "running" in local dev
+        }
+
+        // Return sample pong for core ping
+        if (strpos($command, 'core ping') !== false) {
+            return 'Asterisk ping pong';
+        }
+
         // Return sample channels count for core show channels
         if (strpos($command, 'core show channels') !== false) {
             return <<<EOT

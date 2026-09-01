@@ -77,7 +77,12 @@
                     <div style="color:var(--ink3);font-family:var(--mono);font-size:11px">{{ $serialNumber-- }}</div>
 
                     <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
-                        <div style="font-family:var(--mono);font-weight:700;color:var(--ink1);letter-spacing:.2px;font-size:13.5px">{{ $log->phone_number }}</div>
+                        <div style="font-family:var(--mono);font-weight:700;color:var(--ink1);letter-spacing:.2px;font-size:13.5px">
+                            {{ $log->phone_number }}
+                            @if($log->user)
+                                <span title="Provisioned by {{ $log->user->username }}" style="font-size:10px;font-weight:600;padding:2px 6px;background:var(--primary-dim);color:var(--primary);border-radius:4px;margin-left:6px;vertical-align:middle;font-family:var(--ui)"><i class="fa-solid fa-user" style="font-size:9px;margin-right:3px"></i>{{ $log->user->username }}</span>
+                            @endif
+                        </div>
                         <div style="font-family:var(--mono);font-size:11px;color:var(--ink3)">{{ $log->source_ip ?? '—' }}</div>
                     </div>
 
@@ -224,6 +229,30 @@ function updateDIDStatuses() {
         })
         .then(function(data) {
             if (!data) return;
+
+            // Update global Asterisk status
+            var astStatus = document.getElementById('globalAsteriskStatus');
+            var astDot = document.getElementById('globalAsteriskDot');
+            var astText = document.getElementById('globalAsteriskText');
+            if (astStatus && astDot && astText && data.hasOwnProperty('_asterisk_online')) {
+                if (data['_asterisk_online']) {
+                    astStatus.style.borderColor = 'var(--border)';
+                    astDot.style.background = 'var(--ok)';
+                    astDot.style.boxShadow = '0 0 8px var(--ok)';
+                    astDot.style.animation = 'blink 2s infinite';
+                    astText.textContent = 'Asterisk Online';
+                    astText.style.color = '';
+                    astText.style.fontWeight = '';
+                } else {
+                    astStatus.style.borderColor = 'var(--danger-dim)';
+                    astDot.style.background = 'var(--danger)';
+                    astDot.style.boxShadow = '0 0 8px var(--danger)';
+                    astDot.style.animation = 'none';
+                    astText.textContent = 'Asterisk Offline';
+                    astText.style.color = 'var(--danger)';
+                    astText.style.fontWeight = '600';
+                }
+            }
 
             // Update active calls display
             var navCalls = document.getElementById('navCalls');

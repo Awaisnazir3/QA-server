@@ -19,7 +19,7 @@ class DidRouteController extends Controller
      */
     public function index()
     {
-        $callLogs = CallLog::orderBy('id', 'desc')->get();
+        $callLogs = CallLog::with('user')->orderBy('id', 'desc')->get();
         $totalDids = $callLogs->count();
 
         // Get system stats
@@ -84,11 +84,40 @@ class DidRouteController extends Controller
     }
 
     /**
-     * Hangup all active calls
+     * Hangup all active calls belonging to the logged-in user
      */
     public function hangupAll()
     {
-        $this->asterisk->execute("sudo /usr/sbin/asterisk -rx 'channel request hangup all' 2>/dev/null");
+        $channelsRaw = $this->asterisk->execute("sudo /usr/sbin/asterisk -rx 'core show channels verbose' 2>/dev/null") ?: '';
+        $parsedChannels = [];
+
+        if ($channelsRaw) {
+            $lines = explode("\n", trim($channelsRaw));
+            foreach ($lines as $line) {
+                if (preg_match('/^(SIP\/[^\s]+|Local\/[^\s]+|PJSIP\/[^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([0-9]+)\s+([^\s]+)/i', trim($line), $m)) {
+                    $parsedChannels[] = $m[1];
+                }
+            }
+        }
+
+        $userDids = CallLog::pluck('phone_number')
+            ->map(function($num) { return preg_replace('/[^0-9]/', '', $num); })
+            ->filter()
+            ->toArray();
+
+        foreach ($parsedChannels as $channel) {
+            $matched = false;
+            foreach ($userDids as $did) {
+                if (strpos($channel, $did) !== false) {
+                    $matched = true;
+                    break;
+                }
+            }
+            if ($matched) {
+                $ch_clean = preg_replace('/[^a-zA-Z0-9\/\-@_\.;]/', '', $channel);
+                $this->asterisk->execute("sudo /usr/sbin/asterisk -rx 'channel request hangup " . escapeshellarg($ch_clean) . "' 2>/dev/null");
+            }
+        }
 
         return redirect()->route('dashboard');
     }
@@ -285,6 +314,7 @@ class DidRouteController extends Controller
 
         $response = [
             '_active_calls' => $stats['activeCalls'],
+            '_asterisk_online' => $this->asterisk->isOnline(),
         ];
 
         // Add each DID's status and source IP

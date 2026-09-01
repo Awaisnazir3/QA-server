@@ -4,11 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Traits\BelongsToUser;
 
 class CallLog extends Model
 {
+    use BelongsToUser;
 
-        protected $table = 'call_logs';
+    protected $table = 'call_logs';
 
     public $timestamps = false;
 

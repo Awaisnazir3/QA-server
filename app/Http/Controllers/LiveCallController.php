@@ -13,6 +13,7 @@ class LiveCallController extends Controller
     {
         $this->asterisk = $asterisk;
     }
+    
     /**
      * Display live active calls
      */
@@ -27,12 +28,16 @@ class LiveCallController extends Controller
     }
 
     /**
-     * Handle hangup of all calls
+     * Handle hangup of all calls belonging to the logged-in user
      */
     public function hangupAll(Request $request)
     {
         if ($request->getMethod() === 'POST') {
-            $this->asterisk->execute("sudo /usr/sbin/asterisk -rx 'channel request hangup all' 2>/dev/null");
+            $userCalls = $this->getActiveChannels();
+            foreach ($userCalls as $call) {
+                $channel = preg_replace('/[^a-zA-Z0-9\/\-@_\.;]/', '', $call['channel']);
+                $this->asterisk->execute("sudo /usr/sbin/asterisk -rx 'channel request hangup " . escapeshellarg($channel) . "' 2>/dev/null");
+            }
         }
 
         return redirect()->route('calls.live');
@@ -47,14 +52,33 @@ class LiveCallController extends Controller
 
         if (!empty($channel)) {
             $channel = preg_replace('/[^a-zA-Z0-9\/\-@_\.;]/', '', $channel);
-            $this->asterisk->execute("sudo /usr/sbin/asterisk -rx 'channel request hangup " . escapeshellarg($channel) . "' 2>/dev/null");
+            
+            // Verify that this channel belongs to the user
+            $userDids = \App\Models\CallLog::pluck('phone_number')
+                ->map(function($num) { return preg_replace('/[^0-9]/', '', $num); })
+                ->filter()
+                ->toArray();
+                
+            $belongsToUser = false;
+            foreach ($userDids as $did) {
+                if (strpos($channel, $did) !== false) {
+                    $belongsToUser = true;
+                    break;
+                }
+            }
+
+            if ($belongsToUser) {
+                $this->asterisk->execute("sudo /usr/sbin/asterisk -rx 'channel request hangup " . escapeshellarg($channel) . "' 2>/dev/null");
+            } else {
+                return redirect()->route('calls.live')->with('error', 'Unauthorized channel hangup attempt.');
+            }
         }
 
         return redirect()->route('calls.live');
     }
 
     /**
-     * Parse channels from Asterisk CLI output
+     * Parse channels from Asterisk CLI output and filter by user DIDs
      */
     private function getActiveChannels(): array
     {
@@ -76,6 +100,30 @@ class LiveCallController extends Controller
             }
         }
 
-        return $parsedCalls;
+        // Filter calls to only show channels corresponding to current user's DIDs
+        $userDids = \App\Models\CallLog::pluck('phone_number')
+            ->map(function($num) { return preg_replace('/[^0-9]/', '', $num); })
+            ->filter()
+            ->toArray();
+
+        if (empty($userDids)) {
+            return [];
+        }
+
+        $filteredCalls = [];
+        foreach ($parsedCalls as $call) {
+            $matched = false;
+            foreach ($userDids as $did) {
+                if (strpos($call['channel'], $did) !== false || strpos($call['exten'], $did) !== false) {
+                    $matched = true;
+                    break;
+                }
+            }
+            if ($matched) {
+                $filteredCalls[] = $call;
+            }
+        }
+
+        return $filteredCalls;
     }
 }

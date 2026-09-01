@@ -15,6 +15,24 @@ class ReportController extends Controller
     {
         $query = Cdr::query();
 
+        // Scope CDR to only numbers associated with the authenticated user
+        $userDids = \App\Models\CallLog::pluck('phone_number')->toArray();
+        $userDialerNumbers = \App\Models\CallHistory::pluck('callee_number')
+            ->merge(\App\Models\CallHistory::pluck('caller_id'))
+            ->unique()
+            ->toArray();
+        $allUserNumbers = array_unique(array_merge($userDids, $userDialerNumbers));
+
+        // If the user has no numbers, we pass an empty array to prevent empty whereIn (which matches everything in some setups)
+        if (empty($allUserNumbers)) {
+            $allUserNumbers = ['__non_existent__'];
+        }
+
+        $query->where(function ($q) use ($allUserNumbers) {
+            $q->whereIn('destination', $allUserNumbers)
+              ->orWhereIn('caller_id', $allUserNumbers);
+        });
+
         // Search filter
         $search = $request->input('search', '');
         if (!empty($search)) {
@@ -44,6 +62,13 @@ class ReportController extends Controller
 
         $query = ChannelTestCdr::query();
 
+        // Scope to current user's call logs
+        $userDidIds = \App\Models\CallLog::pluck('id')->toArray();
+        if (empty($userDidIds)) {
+            $userDidIds = [-1];
+        }
+        $query->whereIn('did_id', $userDidIds);
+
         if (!empty($filterDate)) {
             $query->whereDate('created_at', $filterDate);
         }
@@ -59,8 +84,11 @@ class ReportController extends Controller
         $perPage = 50;
         $cdrs = $query->orderBy('id', 'desc')->paginate($perPage);
 
-        // Get unique DIDs for filter dropdown
-        $dids = ChannelTestCdr::distinct('phone_number')->orderBy('phone_number')->pluck('phone_number');
+        // Get unique DIDs for filter dropdown, scoped to user
+        $dids = ChannelTestCdr::whereIn('did_id', $userDidIds)
+            ->distinct('phone_number')
+            ->orderBy('phone_number')
+            ->pluck('phone_number');
 
         return view('reports.channel-tests', [
             'cdrs' => $cdrs,

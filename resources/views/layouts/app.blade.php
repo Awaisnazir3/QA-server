@@ -235,6 +235,9 @@
                 <a href="{{ route('dialer.index') }}" class="sb-item @if(Route::currentRouteName() === 'dialer.index') active @endif" data-target="view-dialer" data-title="Dialer & Call Center" data-crumb="DIDX / Operations / Dialer">
                     <i class="fa-solid fa-phone"></i>Dialer
                 </a>
+                <a href="{{ route('abuse-dids.index') }}" class="sb-item @if(Route::currentRouteName() === 'abuse-dids.index') active @endif" data-target="view-abuse-dids" data-title="Abuse DIDs Detector" data-crumb="DIDX / Operations / Abuse DIDs Detector">
+                    <i class="fa-solid fa-shield-virus"></i>Abuse DIDs Detector
+                </a>
                 <div class="sb-section-lbl">Network</div>
                 <a href="{{ route('sip-trunks') }}" class="sb-item @if(Route::currentRouteName() === 'sip-trunks') active @endif" data-target="view-sip-trunks" data-title="SIP Trunks Infrastructure" data-crumb="DIDX / Network / SIP Trunks">
                     <i class="fa-solid fa-server"></i>SIP Trunks
@@ -242,10 +245,33 @@
                 <a href="{{ route('reports.cdr') }}" class="sb-item @if(Route::currentRouteName() === 'reports.cdr') active @endif" data-target="view-reports" data-title="Call Reports & CDRs" data-crumb="DIDX / Analytics / Reports">
                     <i class="fa-solid fa-chart-line"></i>Reports
                 </a>
+                @if(auth()->check() && strtolower(auth()->user()->username) === 'awais')
                 <a href="{{ route('settings.index') }}" class="sb-item @if(Route::currentRouteName() === 'settings.index') active @endif" data-target="view-settings" data-title="System Settings" data-crumb="DIDX / System / Settings">
                     <i class="fa-solid fa-gear"></i>Settings
                 </a>
+                @endif
             </nav>
+            <div style="padding:16px 12px;border-top:1px solid var(--sidebar-line);margin-top:auto">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                    <div style="width:32px;height:32px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">
+                        {{ strtoupper(substr(auth()->user()->username ?? 'U', 0, 2)) }}
+                    </div>
+                    <div style="flex:1;min-width:0">
+                        <div style="color:#fff;font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                            {{ auth()->user()->username ?? 'User' }}
+                        </div>
+                        <div style="color:var(--sidebar-ink3);font-size:9.5px;text-transform:uppercase;font-family:var(--mono)">
+                            {{ auth()->user()->role ?? 'Operator' }}
+                        </div>
+                    </div>
+                </div>
+                <form action="{{ route('logout') }}" method="POST" style="margin:0">
+                    @csrf
+                    <button type="submit" style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.05);color:var(--sidebar-ink2);border:1px solid var(--sidebar-line);border-radius:8px;font-size:11.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;border:none">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
+                    </button>
+                </form>
+            </div>
             <div class="sb-foot">DIDX v2.0</div>
         </aside>
 
@@ -257,7 +283,17 @@
                     <div class="tb-crumb" id="pageCrumb">@yield('page-crumb', 'DIDX / Dashboard')</div>
                 </div>
                 <div class="tb-right">
-                    <div class="tb-live"><span class="dot"></span>Asterisk Online</div>
+                    @inject('asterisk', 'App\Services\AsteriskService')
+                    @php $isOnline = $asterisk->isOnline(); @endphp
+                    <div class="tb-live" id="globalAsteriskStatus" style="border-color:{{ $isOnline ? 'var(--border)' : 'var(--danger-dim)' }}">
+                        @if($isOnline)
+                            <span class="dot" id="globalAsteriskDot"></span>
+                            <span id="globalAsteriskText">Asterisk Online</span>
+                        @else
+                            <span class="dot" id="globalAsteriskDot" style="background:var(--danger);box-shadow:0 0 8px var(--danger);animation:none"></span>
+                            <span id="globalAsteriskText" style="color:var(--danger);font-weight:600">Asterisk Offline</span>
+                        @endif
+                    </div>
                     <div class="vision-toggle" id="visionToggle">
                         <button type="button" class="vision-btn" data-mode="night" title="Night vision"><i class="fa-solid fa-moon"></i>Night</button>
                         <button type="button" class="vision-btn" data-mode="day" title="Day vision"><i class="fa-solid fa-sun"></i>Day</button>
