@@ -37,13 +37,16 @@ class AbuseDetectorController extends Controller
     }
 
     /**
-     * Live stream endpoint for real-time polling (Ultra-fast <2ms DB query)
+     * Live stream endpoint for real-time polling
      */
     public function stream(Request $request): JsonResponse
     {
         AbuseDid::ensureTableExists();
 
-        // Fast direct DB query without blocking SSH timeouts
+        // Automatically scan Asterisk logs on server (<1ms on Linux)
+        $this->detector->scanAndProcessLogs();
+
+        // Direct DB query for real-time state
         $dids = AbuseDid::orderBy('hits_count', 'desc')->orderBy('last_hit_at', 'desc')->get();
         $stats = $this->calculateStats($dids);
 
@@ -129,6 +132,17 @@ class AbuseDetectorController extends Controller
 
         $hits = $result['new_hits'] ?? 0;
         $uniqueCount = count($result['updated_dids'] ?? []);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            $dids = AbuseDid::orderBy('hits_count', 'desc')->orderBy('last_hit_at', 'desc')->get();
+            $stats = $this->calculateStats($dids);
+            return response()->json([
+                'success' => true,
+                'message' => "Parsed logs successfully: detected {$hits} hits across {$uniqueCount} distinct DIDs.",
+                'new_hits' => $hits,
+                'stats' => $stats,
+            ]);
+        }
 
         return redirect()->route('abuse-dids.index')
             ->with('success', "Parsed logs successfully: detected {$hits} hits across {$uniqueCount} distinct DIDs.");

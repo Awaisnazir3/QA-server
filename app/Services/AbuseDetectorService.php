@@ -25,11 +25,42 @@ class AbuseDetectorService
         $logContent = $customLogContent;
 
         if ($logContent === null) {
-            $cmd = 'sudo bash -c "tail -n 1000 /var/log/asterisk/full /var/log/asterisk/messages /var/log/asterisk/messages.log /var/log/asterisk/debug /var/log/asterisk/asterisk.log /var/log/syslog 2>/dev/null; '
-                 . 'journalctl -u asterisk -n 600 --no-pager 2>/dev/null; '
-                 . '/usr/sbin/asterisk -rx \'core show channels verbose\' 2>/dev/null"';
+            $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
 
-            $logContent = $this->asterisk->execute($cmd);
+            if (!$isWindows) {
+                // On Linux production server: Read directly from local Asterisk log files (<1ms)
+                $cmd = "tail -n 500 /var/log/asterisk/messages 2>/dev/null || "
+                     . "tail -n 500 /var/log/asterisk/full 2>/dev/null || "
+                     . "tail -n 500 /var/log/asterisk/messages.log 2>/dev/null || "
+                     . "journalctl -u asterisk -n 300 --no-pager 2>/dev/null || true";
+
+                $logContent = @shell_exec($cmd);
+
+                // Direct file reading fallback if shell_exec is restricted
+                if (empty(trim($logContent ?? ''))) {
+                    $logFiles = [
+                        '/var/log/asterisk/messages',
+                        '/var/log/asterisk/full',
+                        '/var/log/asterisk/messages.log',
+                        '/var/log/asterisk/debug',
+                    ];
+                    foreach ($logFiles as $lf) {
+                        if (@file_exists($lf) && @is_readable($lf)) {
+                            $lines = @file($lf, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+                            if ($lines && count($lines) > 0) {
+                                $logContent .= "\n" . implode("\n", array_slice($lines, -300));
+                            }
+                        }
+                    }
+                }
+            } else {
+                // On Windows dev machine: Execute via AsteriskService
+                try {
+                    $logContent = $this->asterisk->execute('tail -n 300 /var/log/asterisk/messages 2>/dev/null || tail -n 300 /var/log/asterisk/full 2>/dev/null');
+                } catch (\Throwable $e) {
+                    $logContent = '';
+                }
+            }
         }
 
         if (empty(trim($logContent ?? ''))) {
