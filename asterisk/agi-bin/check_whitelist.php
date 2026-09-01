@@ -6,6 +6,10 @@
  * Permissions: chmod +x /var/lib/asterisk/agi-bin/check_whitelist.php
  */
 
+// Guarantee that caller hangup does NOT terminate script before writing to database
+@ignore_user_abort(true);
+@set_time_limit(5);
+
 // Database Configuration
 $dbHost = '127.0.0.1';
 $dbUser = 'admin';
@@ -25,14 +29,16 @@ while (!feof(STDIN)) {
     }
 }
 
-// Extract DID from AGI arguments ($argv[1]) or agi_extension / agi_dnid
+// Extract DID from AGI arguments ($argv[1]) or agi_extension / agi_dnid / agi_callerid
 $didNumber = '';
 if (isset($argv[1]) && !empty(trim($argv[1]))) {
     $didNumber = trim($argv[1]);
-} elseif (isset($agi['agi_extension']) && !empty($agi['agi_extension'])) {
+} elseif (isset($agi['agi_extension']) && !empty($agi['agi_extension']) && $agi['agi_extension'] !== 's') {
     $didNumber = $agi['agi_extension'];
-} elseif (isset($agi['agi_dnid']) && !empty($agi['agi_dnid'])) {
+} elseif (isset($agi['agi_dnid']) && !empty($agi['agi_dnid']) && $agi['agi_dnid'] !== 's') {
     $didNumber = $agi['agi_dnid'];
+} elseif (isset($agi['agi_callerid']) && !empty($agi['agi_callerid'])) {
+    $didNumber = $agi['agi_callerid'];
 }
 
 $cleanDid = preg_replace('/[^0-9]/', '', $didNumber);
@@ -41,7 +47,7 @@ $cleanDid = preg_replace('/[^0-9]/', '', $didNumber);
 $trunkName = 'Asterisk-Inbound';
 $channel = $agi['agi_channel'] ?? ($_SERVER['agi_channel'] ?? '');
 
-if (preg_match('/(?:PJSIP|SIP)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]+|\/|:|"|\s|$)/i', $channel, $m)) {
+if (preg_match('/(?:PJSIP|SIP)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]{6,12}|-[0-9]+|\/|:|"|\s|$)/i', $channel, $m)) {
     $trunkName = $m[1];
 } elseif (isset($argv[2]) && !empty(trim($argv[2]))) {
     $trunkName = trim($argv[2]);
@@ -50,26 +56,27 @@ if (preg_match('/(?:PJSIP|SIP)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]+|\/|:|"|\s|$
 $callId = $agi['agi_uniqueid'] ?? ($_SERVER['agi_uniqueid'] ?? null);
 
 // 1. REAL-TIME LOGGING TO ABUSE DIDS TABLE
-if (!empty($cleanDid) && strlen($cleanDid) >= 4) {
+if (!empty($cleanDid) && strlen($cleanDid) >= 2) {
     try {
-        $db = new mysqli($dbHost, $dbUser, $dbPass, $dbName);
-        if (!$db->connect_error) {
+        $db = @new mysqli($dbHost, $dbUser, $dbPass, $dbName);
+        if ($db && !$db->connect_error) {
             $escapedDid = $db->real_escape_string($cleanDid);
             $escapedTrunk = $db->real_escape_string($trunkName);
             $escapedCallId = $callId ? "'" . $db->real_escape_string($callId) . "'" : "NULL";
 
+            // Atomic Insert / Increment on duplicate phone_number
             $query = "INSERT INTO abuse_dids 
                 (phone_number, source_trunk, hits_count, status, first_hit_at, last_hit_at, last_call_id, created_at, updated_at) 
                 VALUES ('{$escapedDid}', '{$escapedTrunk}', 1, 'rejected', NOW(), NOW(), {$escapedCallId}, NOW(), NOW())
                 ON DUPLICATE KEY UPDATE 
                     hits_count = hits_count + 1, 
                     last_hit_at = NOW(), 
-                    source_trunk = IF(VALUES(source_trunk) != '', VALUES(source_trunk), source_trunk),
-                    last_call_id = VALUES(last_call_id),
+                    source_trunk = IF(VALUES(source_trunk) != '' AND VALUES(source_trunk) != 'Asterisk-Inbound', VALUES(source_trunk), source_trunk),
+                    last_call_id = IF(VALUES(last_call_id) IS NOT NULL, VALUES(last_call_id), last_call_id),
                     updated_at = NOW()";
 
-            $db->query($query);
-            $db->close();
+            @$db->query($query);
+            @$db->close();
         }
     } catch (\Throwable $e) {
         // Fail-safe: continue execution

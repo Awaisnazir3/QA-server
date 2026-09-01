@@ -18,7 +18,7 @@ class AbuseDetectorService
     }
 
     /**
-     * Fetch recent logs from Asterisk and process new abuse hits
+     * Fetch recent logs from Asterisk and process new abuse hits without limits
      */
     public function scanAndProcessLogs(?string $customLogContent = null): array
     {
@@ -29,34 +29,32 @@ class AbuseDetectorService
 
             if (!$isWindows) {
                 // On Linux production server: Read directly from local Asterisk log files (<1ms)
-                $cmd = "tail -n 500 /var/log/asterisk/messages 2>/dev/null || "
-                     . "tail -n 500 /var/log/asterisk/full 2>/dev/null || "
-                     . "tail -n 500 /var/log/asterisk/messages.log 2>/dev/null || "
-                     . "journalctl -u asterisk -n 300 --no-pager 2>/dev/null || true";
+                $logContent = '';
+                $logFiles = [
+                    '/var/log/asterisk/full',
+                    '/var/log/asterisk/messages',
+                    '/var/log/asterisk/messages.log',
+                    '/var/log/asterisk/debug',
+                ];
 
-                $logContent = @shell_exec($cmd);
-
-                // Direct file reading fallback if shell_exec is restricted
-                if (empty(trim($logContent ?? ''))) {
-                    $logFiles = [
-                        '/var/log/asterisk/messages',
-                        '/var/log/asterisk/full',
-                        '/var/log/asterisk/messages.log',
-                        '/var/log/asterisk/debug',
-                    ];
-                    foreach ($logFiles as $lf) {
-                        if (@file_exists($lf) && @is_readable($lf)) {
-                            $lines = @file($lf, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-                            if ($lines && count($lines) > 0) {
-                                $logContent .= "\n" . implode("\n", array_slice($lines, -300));
-                            }
+                foreach ($logFiles as $lf) {
+                    if (@file_exists($lf) && @is_readable($lf)) {
+                        $lines = @file($lf, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+                        if ($lines && count($lines) > 0) {
+                            // Read up to 8000 lines without artificial clipping
+                            $logContent .= "\n" . implode("\n", array_slice($lines, -8000));
                         }
                     }
+                }
+
+                if (empty(trim($logContent))) {
+                    $cmd = "tail -n 8000 /var/log/asterisk/full 2>/dev/null; tail -n 5000 /var/log/asterisk/messages 2>/dev/null; journalctl -u asterisk -n 2000 --no-pager 2>/dev/null || true";
+                    $logContent = @shell_exec($cmd);
                 }
             } else {
                 // On Windows dev machine: Execute via AsteriskService
                 try {
-                    $logContent = $this->asterisk->execute('tail -n 300 /var/log/asterisk/messages 2>/dev/null || tail -n 300 /var/log/asterisk/full 2>/dev/null');
+                    $logContent = $this->asterisk->execute('tail -n 5000 /var/log/asterisk/full 2>/dev/null || tail -n 5000 /var/log/asterisk/messages 2>/dev/null');
                 } catch (\Throwable $e) {
                     $logContent = '';
                 }
@@ -75,7 +73,7 @@ class AbuseDetectorService
     }
 
     /**
-     * Parse raw log text and extract call events
+     * Parse raw log text and extract call events accurately without hit limits
      */
     public function parseLogContent(string $rawLogs): array
     {
@@ -85,10 +83,20 @@ class AbuseDetectorService
         $recentLogLines = [];
 
         // Track processed call tokens in cache for 2 hours to avoid duplicate counting of same call instance
-        $processedCalls = Cache::get('processed_abuse_call_ids', []);
-        if (!is_array($processedCalls)) {
+        $processedCalls = [];
+        try {
+            $cached = Cache::get('processed_abuse_call_ids', []);
+            if (is_array($cached)) {
+                $processedCalls = $cached;
+            }
+        } catch (\Throwable $e) {
             $processedCalls = [];
         }
+
+        $currentActiveChannel = null;
+        $currentActivePhone = null;
+        $currentActiveTrunk = null;
+        $currentActiveTimestamp = null;
 
         foreach ($lines as $line) {
             $trimmed = trim($line);
@@ -96,12 +104,12 @@ class AbuseDetectorService
                 continue;
             }
 
-            // Save line for recent logs feed
-            if (stripos($trimmed, 'whitelist') !== false || stripos($trimmed, 'outbound') !== false || stripos($trimmed, 'NOTICE') !== false || stripos($trimmed, 'Executing') !== false) {
+            // Save line for recent logs feed if relevant
+            if (stripos($trimmed, 'whitelist') !== false || stripos($trimmed, 'outbound') !== false || stripos($trimmed, 'NOTICE') !== false || stripos($trimmed, 'Executing') !== false || stripos($trimmed, 'Spawn extension') !== false || stripos($trimmed, 'AGI') !== false) {
                 $recentLogLines[] = $trimmed;
             }
 
-            // Timestamp
+            // Timestamp extraction
             $timestamp = null;
             if (preg_match('/^\[([A-Za-z]{3}\s+\d+\s+\d{2}:\d{2}:\d{2})\]/', $trimmed, $tsMatch)) {
                 try {
@@ -111,16 +119,16 @@ class AbuseDetectorService
                 }
             }
 
-            // Call ID e.g. [C-00000698]
+            // Call ID e.g. [C-0000081b]
             $callId = null;
             if (preg_match('/\[C-([0-9a-fA-F]+)\]/', $trimmed, $cidMatch)) {
-                $callId = 'C-' . $cidMatch[1];
+                $callId = 'C-' . strtolower($cidMatch[1]);
             }
 
-            // Channel Hex ID e.g. PJSIP/eu3.didx.net-00000697
+            // Channel Hex ID e.g. PJSIP/eu3.didx.net-0000081e -> CHAN-0000081e
             $chanHex = null;
             if (preg_match('/(?:PJSIP|SIP)\/[a-zA-Z0-9\.\-_]+-([0-9a-fA-F]{6,12})/i', $trimmed, $pjsipMatch)) {
-                $chanHex = 'CHAN-' . $pjsipMatch[1];
+                $chanHex = 'CHAN-' . strtolower($pjsipMatch[1]);
             }
 
             // Trunk / Peer name e.g. eu3.didx.net
@@ -129,47 +137,94 @@ class AbuseDetectorService
                 $trunk = $tMatch[1];
             }
 
-            // Phone / DID extraction
+            // Phone / DID extraction - Capture ANY phone number / DID hitting Asterisk (2 to 32 digits)
             $phone = null;
-            if (preg_match('/Executing\s+\[\s*(\+?[0-9]{3,20})\s*@/i', $trimmed, $pMatch)) {
+            if (preg_match('/Executing\s+\[\s*([0-9\+]{2,32})\s*@/i', $trimmed, $pMatch)) {
                 $phone = $pMatch[1];
-            } elseif (preg_match('/(?:check_whitelist\.php|agi)[\s,]+(\+?[0-9]{3,20})/i', $trimmed, $pMatch)) {
+            } elseif (preg_match('/(?:check_whitelist\.php|agi)[\s,("]+([0-9\+]{2,32})/i', $trimmed, $pMatch)) {
                 $phone = $pMatch[1];
-            } elseif (preg_match('/Ext\.\s*(\+?[0-9]{3,20}):/i', $trimmed, $pMatch)) {
+            } elseif (preg_match('/Ext\.\s*([0-9\+]{2,32}):/i', $trimmed, $pMatch)) {
                 $phone = $pMatch[1];
-            } elseif (preg_match('/Checking Whitelist.*?for\s+(\+?[0-9]{3,20})/i', $trimmed, $pMatch)) {
+            } elseif (preg_match('/Checking\s+Whitelist.*?for\s+([0-9\+]{2,32})/i', $trimmed, $pMatch)) {
                 $phone = $pMatch[1];
-            } elseif (preg_match('/NOTICE.*?\b(\+?[0-9]{4,20})\b.*?handled or rejected/i', $trimmed, $pMatch)) {
+            } elseif (preg_match('/NOTICE.*?\b([0-9\+]{2,32})\b.*?handled or rejected/i', $trimmed, $pMatch)) {
                 $phone = $pMatch[1];
-            } elseif (preg_match('/Spawn extension \([a-zA-Z0-9_\-]+,\s*(\+?[0-9]{3,20}),/i', $trimmed, $pMatch)) {
+            } elseif (preg_match('/Spawn\s+extension\s*\([^,]+,\s*([0-9\+]{2,32})\s*,\s*\d+\)/i', $trimmed, $pMatch)) {
+                $phone = $pMatch[1];
+            } elseif (preg_match('/to\s+extension\s+[\'"]?([0-9\+]{2,32})[\'"]?/i', $trimmed, $pMatch)) {
                 $phone = $pMatch[1];
             }
 
-            // When a phone number is detected in this line
-            if ($phone) {
-                $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
-                if (strlen($cleanPhone) >= 4) {
-                    // Token based on this line's channel hex or call ID or line hash
-                    $token = $chanHex ?: $callId ?: ($cleanPhone . '_' . ($trunk ?: 'inbound') . '_' . substr(md5($trimmed), 0, 8));
+            $cleanPhone = $phone ? preg_replace('/[^0-9]/', '', $phone) : null;
+            if ($cleanPhone && strlen($cleanPhone) < 2) {
+                $cleanPhone = null;
+            }
 
+            // Update active channel context
+            if ($chanHex) {
+                $currentActiveChannel = $chanHex;
+                if ($cleanPhone) $currentActivePhone = $cleanPhone;
+                if ($trunk) $currentActiveTrunk = $trunk;
+                if ($timestamp) $currentActiveTimestamp = $timestamp;
+            }
+
+            // Call event construction & correlation
+            if ($chanHex && $cleanPhone) {
+                $token = $chanHex;
+                if (!isset($callEvents[$token])) {
+                    $callEvents[$token] = [
+                        'token' => $token,
+                        'phone_number' => $cleanPhone,
+                        'source_trunk' => $trunk ?: 'Asterisk-Inbound',
+                        'timestamp' => $timestamp ?: ($currentActiveTimestamp ?: now()),
+                        'call_id' => $callId,
+                        'raw_line' => $trimmed,
+                        'status' => 'rejected',
+                    ];
+                } else {
+                    if ($trunk && $callEvents[$token]['source_trunk'] === 'Asterisk-Inbound') {
+                        $callEvents[$token]['source_trunk'] = $trunk;
+                    }
+                    if ($callId && empty($callEvents[$token]['call_id'])) {
+                        $callEvents[$token]['call_id'] = $callId;
+                    }
+                    if ($timestamp) {
+                        $callEvents[$token]['timestamp'] = $timestamp;
+                    }
+                }
+            } elseif ($callId && $cleanPhone) {
+                // If this Call ID matches the active channel and same phone, correlate without creating duplicate
+                if ($currentActiveChannel && $currentActivePhone === $cleanPhone && isset($callEvents[$currentActiveChannel])) {
+                    $callEvents[$currentActiveChannel]['call_id'] = $callId;
+                    if ($timestamp) {
+                        $callEvents[$currentActiveChannel]['timestamp'] = $timestamp;
+                    }
+                } else {
+                    $token = $callId;
                     if (!isset($callEvents[$token])) {
                         $callEvents[$token] = [
-                            'call_id' => $callId ?: $chanHex,
+                            'token' => $token,
                             'phone_number' => $cleanPhone,
-                            'source_trunk' => $trunk ?: 'Asterisk-Inbound',
+                            'source_trunk' => $currentActiveTrunk ?: 'Asterisk-Inbound',
                             'timestamp' => $timestamp ?: now(),
+                            'call_id' => $callId,
                             'raw_line' => $trimmed,
                             'status' => 'rejected',
                         ];
-                    } else {
-                        // Update with more specific trunk/call_id if previously generic
-                        if ($trunk && $callEvents[$token]['source_trunk'] === 'Asterisk-Inbound') {
-                            $callEvents[$token]['source_trunk'] = $trunk;
-                        }
-                        if ($callId && empty($callEvents[$token]['call_id'])) {
-                            $callEvents[$token]['call_id'] = $callId;
-                        }
                     }
+                }
+            } elseif ($cleanPhone) {
+                $token = $currentActiveChannel ?: ($cleanPhone . '_' . substr(md5($trimmed), 0, 8));
+                if (!isset($callEvents[$token])) {
+                    $callEvents[$token] = [
+                        'token' => $token,
+                        'phone_number' => $cleanPhone,
+                        'source_trunk' => $trunk ?: ($currentActiveTrunk ?: 'Asterisk-Inbound'),
+                        'timestamp' => $timestamp ?: ($currentActiveTimestamp ?: now()),
+                        'call_id' => null,
+                        'raw_line' => $trimmed,
+                        'status' => 'rejected',
+                    ];
                 }
             }
         }
@@ -177,7 +232,7 @@ class AbuseDetectorService
         $newHitsCount = 0;
         $updatedDids = [];
 
-        // Save each detected call event to Database
+        // Save every single detected call event to Database without limits
         foreach ($callEvents as $token => $event) {
             // Check if this call instance was already processed
             if (isset($processedCalls[$token])) {
@@ -192,13 +247,15 @@ class AbuseDetectorService
             $abuseDid = AbuseDid::where('phone_number', $phone)->first();
 
             if ($abuseDid) {
-                // Increment hits count (1 -> 2 -> 3 -> 4 ...)
+                // Increment hits count without any cap (1 -> 2 -> 3 -> ... -> 10,000+)
                 $abuseDid->hits_count = ($abuseDid->hits_count ?? 1) + 1;
                 $abuseDid->last_hit_at = $hitTime;
                 if (!empty($trunk) && $trunk !== 'Asterisk-Inbound') {
                     $abuseDid->source_trunk = $trunk;
                 }
-                $abuseDid->last_call_id = $event['call_id'];
+                if (!empty($event['call_id'])) {
+                    $abuseDid->last_call_id = $event['call_id'];
+                }
                 $abuseDid->raw_log = $event['raw_line'];
                 $abuseDid->save();
             } else {
@@ -221,23 +278,27 @@ class AbuseDetectorService
             $updatedDids[$phone] = [
                 'id' => $abuseDid->id,
                 'phone_number' => $abuseDid->phone_number,
-                'hits_count' => $abuseDid->hits_count,
+                'hits_count' => (int) $abuseDid->hits_count,
                 'source_trunk' => $abuseDid->source_trunk,
                 'last_hit_at' => $abuseDid->last_hit_at ? $abuseDid->last_hit_at->format('Y-m-d H:i:s') : '',
                 'status' => $abuseDid->status,
             ];
         }
 
-        // Limit processed tokens cache size
-        if (count($processedCalls) > 5000) {
-            $processedCalls = array_slice($processedCalls, -2500, null, true);
+        // Limit processed tokens cache size to prevent memory leak while holding up to 20,000 recent call tokens
+        if (count($processedCalls) > 20000) {
+            $processedCalls = array_slice($processedCalls, -10000, null, true);
         }
-        Cache::put('processed_abuse_call_ids', $processedCalls, 7200);
+        try {
+            Cache::put('processed_abuse_call_ids', $processedCalls, 7200);
+        } catch (\Throwable $e) {
+            // Ignore cache write error
+        }
 
         return [
             'new_hits' => $newHitsCount,
             'updated_dids' => $updatedDids,
-            'recent_logs' => array_slice(array_reverse($recentLogLines), 0, 30),
+            'recent_logs' => array_slice(array_reverse($recentLogLines), 0, 50),
         ];
     }
 }

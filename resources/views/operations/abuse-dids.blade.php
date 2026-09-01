@@ -38,10 +38,10 @@
         50% { box-shadow: 0 0 0 6px rgba(224,57,63,0); }
     }
     .row-hit-flash {
-        animation: rowFlash 1.2s ease-out;
+        animation: rowFlash 1.4s ease-out;
     }
     @keyframes rowFlash {
-        0% { background-color: rgba(224, 57, 63, 0.25) !important; transform: scale(1.01); }
+        0% { background-color: rgba(224, 57, 63, 0.3) !important; transform: scale(1.01); }
         100% { background-color: transparent; transform: scale(1); }
     }
     .trunk-pill {
@@ -77,6 +77,33 @@
         background: var(--ok);
         box-shadow: 0 0 8px var(--ok);
         animation: blink 1.5s infinite;
+    }
+    .modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    }
+    .modal-box {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        width: 90%;
+        max-width: 600px;
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+        overflow: hidden;
+        animation: modalIn 0.2s ease-out;
+    }
+    @keyframes modalIn {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
     }
 </style>
 
@@ -122,7 +149,7 @@
 
 <div class="card">
     <div class="card-head">
-        <div style="display:flex;align-items:center;gap:12px">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
             <div class="card-title"><i class="fa-solid fa-list-ol"></i>Detected Abused Numbers</div>
             <div class="live-pulse-indicator" id="liveIndicator">
                 <span class="pdot"></span>
@@ -133,6 +160,16 @@
             <!-- Search & Filter -->
             <input type="text" id="tableSearch" placeholder="Filter DID / Trunk..." onkeyup="filterAbuseTable()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--rs);background:var(--surface2);color:var(--ink1);font-family:var(--mono);font-size:12px;outline:none;width:170px">
             
+            <!-- Paste Logs Modal Button -->
+            <button type="button" class="btn-primary" onclick="openPasteModal()" style="padding:7px 13px;font-size:11.5px">
+                <i class="fa-solid fa-paste"></i> Paste Asterisk Logs
+            </button>
+
+            <!-- Add Single DID Modal Button -->
+            <button type="button" class="btn-sm btn-reset" onclick="openAddDidModal()" style="padding:7px 13px;font-size:11.5px">
+                <i class="fa-solid fa-plus"></i> Add DID
+            </button>
+
             <!-- Pause/Resume Live Toggle -->
             <button type="button" class="btn-sm btn-reset" id="toggleLiveBtn" onclick="toggleLiveScanning()">
                 <i class="fa-solid fa-pause"></i> Pause Feed
@@ -239,6 +276,62 @@
     </div>
 </div>
 
+<!-- PASTE ASTERISK LOGS MODAL -->
+<div class="modal-backdrop" id="pasteLogsModal">
+    <div class="modal-box">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <h3 style="margin:0;font-size:16px;color:var(--ink1);display:flex;align-items:center;gap:8px">
+                <i class="fa-solid fa-terminal" style="color:var(--primary)"></i> Paste Asterisk CLI / Log Text
+            </h3>
+            <button type="button" onclick="closePasteModal()" style="background:transparent;border:none;color:var(--ink3);font-size:16px;cursor:pointer">&times;</button>
+        </div>
+        <div style="padding:20px">
+            <p style="font-size:12.5px;color:var(--ink2);margin-top:0;margin-bottom:12px">
+                Paste live Asterisk CLI output (e.g. <code>asterisk -rvvv</code>) or log snippets below. The system will parse and record all incoming calls and hit counts immediately.
+            </p>
+            <textarea id="rawLogsInput" rows="10" placeholder="Paste Asterisk CLI logs here..." style="width:100%;box-sizing:border-box;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--ink1);font-family:var(--mono);font-size:12px;outline:none;resize:vertical"></textarea>
+            <div id="pasteResultMsg" style="display:none;margin-top:10px;padding:10px;border-radius:6px;font-size:12.5px"></div>
+        </div>
+        <div style="padding:14px 20px;background:var(--surface2);border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
+            <button type="button" class="btn-sm btn-reset" onclick="closePasteModal()">Cancel</button>
+            <button type="button" class="btn-primary" id="btnSubmitLogs" onclick="submitCustomLogs()">
+                <i class="fa-solid fa-bolt"></i> Parse & Process Logs
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ADD SINGLE DID MODAL -->
+<div class="modal-backdrop" id="addDidModal">
+    <div class="modal-box">
+        <form method="POST" action="{{ route('abuse-dids.add') }}">
+            @csrf
+            <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+                <h3 style="margin:0;font-size:16px;color:var(--ink1);display:flex;align-items:center;gap:8px">
+                    <i class="fa-solid fa-phone" style="color:var(--primary)"></i> Add Abused DID / Register Hit
+                </h3>
+                <button type="button" onclick="closeAddDidModal()" style="background:transparent;border:none;color:var(--ink3);font-size:16px;cursor:pointer">&times;</button>
+            </div>
+            <div style="padding:20px">
+                <div style="margin-bottom:14px">
+                    <label style="display:block;font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:6px">Phone Number / DID *</label>
+                    <input type="text" name="phone_number" required placeholder="e.g. 441687500035 or 12892040018" style="width:100%;box-sizing:border-box;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--ink1);font-family:var(--mono);font-size:13px;outline:none">
+                </div>
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:6px">Source Trunk (Optional)</label>
+                    <input type="text" name="source_trunk" placeholder="e.g. eu3.didx.net or Asterisk-Inbound" style="width:100%;box-sizing:border-box;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--ink1);font-family:var(--mono);font-size:13px;outline:none">
+                </div>
+            </div>
+            <div style="padding:14px 20px;background:var(--surface2);border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
+                <button type="button" class="btn-sm btn-reset" onclick="closeAddDidModal()">Cancel</button>
+                <button type="submit" class="btn-primary">
+                    <i class="fa-solid fa-check"></i> Register Hit
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 @endsection
 
 @section('scripts')
@@ -251,6 +344,24 @@
     @foreach($dids as $did)
         lastKnownHits['{{ $did->phone_number }}'] = {{ (int)$did->hits_count }};
     @endforeach
+
+    function openPasteModal() {
+        document.getElementById('pasteLogsModal').style.display = 'flex';
+        document.getElementById('rawLogsInput').focus();
+    }
+
+    function closePasteModal() {
+        document.getElementById('pasteLogsModal').style.display = 'none';
+        document.getElementById('pasteResultMsg').style.display = 'none';
+    }
+
+    function openAddDidModal() {
+        document.getElementById('addDidModal').style.display = 'flex';
+    }
+
+    function closeAddDidModal() {
+        document.getElementById('addDidModal').style.display = 'none';
+    }
 
     function toggleLiveScanning() {
         isLiveScanning = !isLiveScanning;
@@ -311,6 +422,68 @@
         })
         .catch(function(err) {
             console.warn('Abuse stream polling error:', err);
+        });
+    }
+
+    function submitCustomLogs() {
+        var rawLogs = document.getElementById('rawLogsInput').value.trim();
+        var msgDiv = document.getElementById('pasteResultMsg');
+        var btn = document.getElementById('btnSubmitLogs');
+        var csrfToken = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
+
+        if (!rawLogs) {
+            msgDiv.style.display = 'block';
+            msgDiv.style.background = 'var(--danger-dim)';
+            msgDiv.style.color = 'var(--danger)';
+            msgDiv.innerText = 'Please paste Asterisk logs before submitting.';
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+
+        fetch('{{ route("abuse-dids.parse-logs") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ raw_logs: rawLogs })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-bolt"></i> Parse & Process Logs';
+
+            if (data.success) {
+                msgDiv.style.display = 'block';
+                msgDiv.style.background = 'var(--ok-dim)';
+                msgDiv.style.color = 'var(--ok)';
+                msgDiv.innerText = data.message || 'Logs parsed successfully!';
+
+                // Refresh table immediately
+                pollAbuseStream();
+
+                setTimeout(function() {
+                    closePasteModal();
+                    document.getElementById('rawLogsInput').value = '';
+                }, 1200);
+            } else {
+                msgDiv.style.display = 'block';
+                msgDiv.style.background = 'var(--danger-dim)';
+                msgDiv.style.color = 'var(--danger)';
+                msgDiv.innerText = data.message || 'Failed to parse logs.';
+            }
+        })
+        .catch(function(err) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-bolt"></i> Parse & Process Logs';
+            msgDiv.style.display = 'block';
+            msgDiv.style.background = 'var(--danger-dim)';
+            msgDiv.style.color = 'var(--danger)';
+            msgDiv.innerText = 'Error connecting to server: ' + err.message;
         });
     }
 

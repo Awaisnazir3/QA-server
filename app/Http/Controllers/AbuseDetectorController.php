@@ -87,9 +87,9 @@ class AbuseDetectorController extends Controller
         $cleanPhone = preg_replace('/[^0-9]/', '', $rawPhone);
         $trunk = trim($request->input('source_trunk', 'Manual-Entry')) ?: 'Manual-Entry';
 
-        if (strlen($cleanPhone) < 5) {
+        if (strlen($cleanPhone) < 2) {
             return redirect()->route('abuse-dids.index')
-                ->with('error', 'Please enter a valid phone number (at least 5 digits).');
+                ->with('error', 'Please enter a valid phone number (at least 2 digits).');
         }
 
         $abuseDid = AbuseDid::where('phone_number', $cleanPhone)->first();

@@ -15,7 +15,7 @@ return new class extends Migration
             Schema::create('abuse_dids', function (Blueprint $table) {
                 $table->id();
                 $table->integer('user_id')->nullable();
-                $table->string('phone_number', 50)->index();
+                $table->string('phone_number', 50)->unique();
                 $table->string('source_trunk', 100)->nullable();
                 $table->unsignedInteger('hits_count')->default(1);
                 $table->string('status', 30)->default('rejected');

@@ -29,7 +29,7 @@ class AbuseDid extends Model
     ];
 
     /**
-     * Helper to auto-create table if missing
+     * Helper to auto-create table if missing and enforce unique constraint
      */
     public static function ensureTableExists(): void
     {
@@ -38,7 +38,7 @@ class AbuseDid extends Model
                 Schema::create('abuse_dids', function (Blueprint $table) {
                     $table->id();
                     $table->integer('user_id')->nullable();
-                    $table->string('phone_number', 50)->index();
+                    $table->string('phone_number', 50)->unique();
                     $table->string('source_trunk', 100)->nullable();
                     $table->unsignedInteger('hits_count')->default(1);
                     $table->string('status', 30)->default('rejected');
@@ -51,9 +51,46 @@ class AbuseDid extends Model
                     $table->index('hits_count');
                     $table->index('last_hit_at');
                 });
+            } else {
+                // Ensure duplicate rows are consolidated if any exist
+                try {
+                    $duplicates = \Illuminate\Support\Facades\DB::select("
+                        SELECT phone_number, COUNT(*) as cnt, SUM(hits_count) as total_hits, MAX(last_hit_at) as max_last_hit, MIN(first_hit_at) as min_first_hit
+                        FROM abuse_dids 
+                        GROUP BY phone_number 
+                        HAVING cnt > 1
+                    ");
+
+                    foreach ($duplicates as $dup) {
+                        $records = static::where('phone_number', $dup->phone_number)->orderBy('id', 'asc')->get();
+                        if ($records->count() > 1) {
+                            $primary = $records->first();
+                            $primary->hits_count = $dup->total_hits;
+                            $primary->first_hit_at = $dup->min_first_hit ?: $primary->first_hit_at;
+                            $primary->last_hit_at = $dup->max_last_hit ?: $primary->last_hit_at;
+                            $primary->save();
+
+                            // Delete subsequent duplicate records
+                            static::where('phone_number', $dup->phone_number)
+                                ->where('id', '!=', $primary->id)
+                                ->delete();
+                        }
+                    }
+
+                    // Enforce UNIQUE index on phone_number if not already present
+                    $uniqueIndexes = \Illuminate\Support\Facades\DB::select("
+                        SHOW INDEX FROM abuse_dids WHERE Column_name = 'phone_number' AND Non_unique = 0
+                    ");
+
+                    if (empty($uniqueIndexes)) {
+                        \Illuminate\Support\Facades\DB::statement("ALTER TABLE abuse_dids ADD UNIQUE KEY abuse_dids_phone_number_unique (phone_number)");
+                    }
+                } catch (\Throwable $e) {
+                    // Ignore if already unique or schema query not supported
+                }
             }
         } catch (\Throwable $e) {
-            // Ignore if already exists or permission issue
+            // Ignore if table already exists or permission issue
         }
     }
 }
