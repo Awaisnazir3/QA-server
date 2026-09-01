@@ -214,8 +214,8 @@
         <aside class="sidebar">
             <div class="sb-brand">
                 <a href="{{ route('dashboard') }}" style="display:flex;align-items:center;text-decoration:none;gap:10px;width:100%">
-                    <div class="sb-logo-card">
-                        <img src="{{ asset('images/didx-logo.svg') }}" alt="DIDX" style="height:22px;width:auto;display:block">
+                    <div class="sb-logo-card" style="background:#ffffff;padding:5px 10px;border-radius:6px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.22)">
+                        <img src="{{ asset('images/didx-logo.png') }}" alt="DIDX" style="height:22px;width:auto;display:block">
                     </div>
                     <div style="font-size:9px;color:var(--sidebar-ink3);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;line-height:1.3">
                         Softswitch<br><span style="color:var(--sidebar-ink2);font-weight:700">Console</span>

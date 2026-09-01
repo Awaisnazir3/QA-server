@@ -160,7 +160,7 @@
     <div class="login-container">
         <div class="login-header">
             <div class="logo-box">
-                <img src="{{ asset('images/didx-logo.svg') }}" alt="DIDX" style="height:38px;width:auto;display:block">
+                <img src="{{ asset('images/didx-logo.png') }}" alt="DIDX" style="height:44px;width:auto;display:block">
             </div>
             <h1 class="title">Softswitch Console</h1>
             <p class="subtitle">Authentication Portal</p>
