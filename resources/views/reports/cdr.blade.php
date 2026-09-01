@@ -7,47 +7,59 @@
 @section('content')
 <div class="slabel"><i class="fa-solid fa-chart-line"></i>Call Detail Records (CDR) &amp; Reports</div>
 
-<div class="card">
-    <div class="card-head">
-        <div class="card-title"><i class="fa-solid fa-file-lines"></i>CDR Logs</div>
-        <div style="display:flex;align-items:center;gap:10px">
-            <form method="GET" style="display:flex;gap:8px;margin:0">
-                <input type="text" name="search" placeholder="Search Caller ID / DID..." value="{{ $search }}" style="padding:9px 13px;border:1px solid var(--border);border-radius:var(--rs);background:var(--surface2);color:var(--ink1);font-family:var(--mono);font-size:13px;outline:none;flex:1;min-width:200px">
-                <button type="submit" class="btn-primary"><i class="fa-solid fa-search"></i>Search</button>
+<div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface);flex-wrap:wrap;gap:10px">
+        <div class="card-title" style="font-size:13.5px"><i class="fa-solid fa-file-lines"></i>CDR Logs</div>
+        <div style="display:flex;align-items:center;gap:8px">
+            <form method="GET" style="display:flex;gap:6px;margin:0">
+                <input type="text" name="search" placeholder="Search Caller ID / DID..." value="{{ $search }}" style="padding:5px 10px;border:1px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--ink1);font-family:var(--mono);font-size:11.5px;outline:none;width:180px">
+                <button type="submit" class="btn-primary"><i class="fa-solid fa-search"></i> Search</button>
                 @if($search)
-                    <a href="{{ route('reports.cdr') }}" class="btn-sm btn-reset" style="text-decoration:none"><i class="fa-solid fa-rotate-left"></i>Reset</a>
+                    <a href="{{ route('reports.cdr') }}" class="btn-sm btn-reset" style="text-decoration:none"><i class="fa-solid fa-rotate-left"></i> Reset</a>
                 @endif
             </form>
         </div>
     </div>
 
     <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;margin-top:15px;font-family:var(--mono);font-size:13px;text-align:left;min-width:700px">
+        <table class="table-compact">
             <thead>
-                <tr style="border-bottom:1px solid var(--border)">
-                    <th style="padding:12px;border-bottom:1px solid var(--border);background:#f8f9fd;color:#9499b3;font-size:11px;text-transform:uppercase">Date & Time</th>
-                    <th style="padding:12px;border-bottom:1px solid var(--border);background:#f8f9fd;color:#9499b3;font-size:11px;text-transform:uppercase">Caller ID</th>
-                    <th style="padding:12px;border-bottom:1px solid var(--border);background:#f8f9fd;color:#9499b3;font-size:11px;text-transform:uppercase">Destination</th>
-                    <th style="padding:12px;border-bottom:1px solid var(--border);background:#f8f9fd;color:#9499b3;font-size:11px;text-transform:uppercase">Duration</th>
-                    <th style="padding:12px;border-bottom:1px solid var(--border);background:#f8f9fd;color:#9499b3;font-size:11px;text-transform:uppercase">Billsec</th>
-                    <th style="padding:12px;border-bottom:1px solid var(--border);background:#f8f9fd;color:#9499b3;font-size:11px;text-transform:uppercase">Disposition</th>
+                <tr>
+                    <th>Date & Time</th>
+                    <th>Caller ID</th>
+                    <th>Destination</th>
+                    <th style="text-align:center">Duration</th>
+                    <th style="text-align:center">Billsec</th>
+                    <th>Disposition</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($cdrs as $cdr)
-                    <tr style="border-bottom:1px solid var(--bordersoft)">
-                        <td style="padding:12px">{{ $cdr->start_time?->format('Y-m-d H:i:s') ?? '—' }}</td>
-                        <td style="padding:12px"><strong>{{ htmlspecialchars($cdr->caller_id) }}</strong></td>
-                        <td style="padding:12px">{{ htmlspecialchars($cdr->destination) }}</td>
-                        <td style="padding:12px">{{ $cdr->duration }}s</td>
-                        <td style="padding:12px">{{ $cdr->billsec }}s</td>
-                        <td style="padding:12px">
-                            <strong style="color:{{ $cdr->disposition === 'ANSWERED' ? '#0fa66a' : '#e0393f' }}">{{ $cdr->disposition }}</strong>
+                    <tr>
+                        <td style="font-family:var(--mono);font-size:11.5px;color:var(--ink2)">{{ $cdr->start_time?->format('Y-m-d H:i:s') ?? '—' }}</td>
+                        <td style="font-family:var(--mono);font-weight:700;color:var(--ink1);font-size:12.5px">{{ $cdr->caller_id }}</td>
+                        <td style="font-family:var(--mono);color:var(--ink2)">{{ $cdr->destination }}</td>
+                        <td style="text-align:center;font-family:var(--mono);color:var(--ink2)">{{ $cdr->duration }}s</td>
+                        <td style="text-align:center;font-family:var(--mono);color:var(--ink2)">{{ $cdr->billsec }}s</td>
+                        <td>
+                            @if($cdr->disposition === 'ANSWERED')
+                                <span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--ok);font-weight:600">
+                                    <span class="status-dot status-pass"></span>
+                                    Answered
+                                </span>
+                            @else
+                                <span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--danger);font-weight:600">
+                                    <span class="status-dot status-fail"></span>
+                                    {{ ucfirst(strtolower($cdr->disposition)) }}
+                                </span>
+                            @endif
                         </td>
                     </tr>
                 @empty
-                    <tr style="border-bottom:1px solid var(--bordersoft)">
-                        <td colspan="6" style="text-align:center;padding:24px;color:#9499b3">No CDR logs found @if($search) matching "{{ htmlspecialchars($search) }}" @endif</td>
+                    <tr>
+                        <td colspan="6" style="text-align:center;padding:28px;color:var(--ink3);font-family:var(--mono);font-size:12px">
+                            No CDR logs found @if($search) matching "{{ $search }}" @endif
+                        </td>
                     </tr>
                 @endforelse
             </tbody>

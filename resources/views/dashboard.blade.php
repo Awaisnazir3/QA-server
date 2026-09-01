@@ -26,121 +26,119 @@
 </div>
 
 <!-- PROVISION DID -->
-<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 20px;display:flex;align-items:center;gap:16px;margin-bottom:26px;flex-wrap:wrap">
-    <div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--ink1);white-space:nowrap">
-        <i class="fa-solid fa-plus-circle" style="color:var(--primary)"></i>Provision DID
+<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 16px;display:flex;align-items:center;gap:14px;margin-bottom:20px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--ink1);white-space:nowrap">
+        <i class="fa-solid fa-plus-circle" style="color:var(--primary)"></i> Provision DID
     </div>
-    <form method="POST" action="{{ route('dashboard.provision') }}" style="display:flex;gap:10px;align-items:center;flex:1;min-width:220px">
+    <form method="POST" action="{{ route('dashboard.provision') }}" style="display:flex;gap:8px;align-items:center;flex:1;min-width:220px">
         @csrf
-        <input type="text" name="phone_number" placeholder="e.g. 44987654320" style="flex:1;min-width:160px;padding:9px 13px;border:1px solid var(--border);border-radius:var(--rs);background:var(--surface2);color:var(--ink1);font-family:var(--mono);font-size:13px;outline:none" required>
-        <button type="submit" class="btn-primary"><i class="fa-solid fa-bolt"></i>Deploy to Switch</button>
+        <input type="text" name="phone_number" placeholder="e.g. 44987654320" style="flex:1;min-width:160px;padding:6px 11px;border:1px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--ink1);font-family:var(--mono);font-size:12.5px;outline:none" required>
+        <button type="submit" class="btn-primary"><i class="fa-solid fa-bolt"></i> Deploy to Switch</button>
     </form>
 </div>
 
 <div class="slabel"><i class="fa-solid fa-circle-nodes"></i>DID Routing &amp; Channel Testing</div>
-<div class="card">
-    <div class="card-head">
-        <div class="card-title"><i class="fa-solid fa-table-list"></i>Active DID Routes</div>
-        <div style="display:flex;align-items:center;gap:10px">
+<div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface);flex-wrap:wrap;gap:10px">
+        <div class="card-title" style="font-size:13.5px"><i class="fa-solid fa-table-list"></i>Active DID Routes</div>
+        <div style="display:flex;align-items:center;gap:8px">
             <form method="POST" action="{{ route('dashboard.hangup-all') }}" style="margin:0" id="hangupForm" onsubmit="return handleHangupSubmit(event)">
                 @csrf
-                <button type="submit" class="btn-hangup" id="hangupBtn"><i class="fa-solid fa-phone-slash"></i>Hangup All</button>
+                <button type="submit" class="btn-hangup" id="hangupBtn"><i class="fa-solid fa-phone-slash"></i> Hangup All</button>
             </form>
             <form method="POST" action="{{ route('dashboard.clear-all') }}" style="margin:0" onsubmit="return confirm('Are you sure you want to delete ALL active DID routes?')">
                 @csrf
                 @method('DELETE')
-                <button type="submit" class="btn-sm btn-del" style="padding:8px 14px;font-size:11.5px;font-weight:700"><i class="fa-solid fa-trash-can"></i>Clear All DIDs</button>
+                <button type="submit" class="btn-sm btn-del"><i class="fa-solid fa-trash-can"></i> Clear All</button>
             </form>
             <div class="cbadge">{{ $totalDids }} entries</div>
         </div>
     </div>
     <div style="overflow-x:auto">
-        <div style="display:grid;grid-template-columns:34px minmax(150px,auto) minmax(80px,auto) 1fr minmax(210px,auto) minmax(70px,auto) 1fr minmax(210px,auto);gap:14px;padding:0 18px 11px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);min-width:880px">
-            <div>#</div>
-            <div>DID / Source</div>
-            <div>Status</div>
-            <div></div>
-            <div>Channel Test</div>
-            <div style="text-align:center">Channels Found</div>
-            <div></div>
-            <div style="text-align:center">Action</div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:8px;min-width:880px">
-            @php $serialNumber = $totalDids; @endphp
-            @forelse($callLogs as $log)
-                @php
-                    $status = !empty($log->status) ? strtolower(trim($log->status)) : 'pending';
-                    if (!in_array($status, ['pass', 'fail', 'route'])) $status = 'pending';
-                    $channelsDetected = $log->checked_channels !== null ? (int)$log->checked_channels : '—';
-                @endphp
-                <div style="display:grid;grid-template-columns:34px minmax(150px,auto) minmax(80px,auto) 1fr minmax(210px,auto) minmax(70px,auto) 1fr minmax(210px,auto);gap:14px;align-items:center;padding:13px 18px;background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--grey);border-radius:11px;transition:background .15s,border-color .15s,box-shadow .15s" style="border-left-color: {{ $status === 'pass' ? 'var(--ok)' : ($status === 'route' ? 'var(--amber)' : ($status === 'fail' ? 'var(--danger)' : 'var(--grey)')) }}" data-id="{{ $log->id }}">
-                    <div style="color:var(--ink3);font-family:var(--mono);font-size:11px">{{ $serialNumber-- }}</div>
-
-                    <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
-                        <div style="font-family:var(--mono);font-weight:700;color:var(--ink1);letter-spacing:.2px;font-size:13.5px">
-                            {{ $log->phone_number }}
-                            @if($log->user)
-                                <span title="Provisioned by {{ $log->user->username }}" style="font-size:10px;font-weight:600;padding:2px 6px;background:var(--primary-dim);color:var(--primary);border-radius:4px;margin-left:6px;vertical-align:middle;font-family:var(--ui)"><i class="fa-solid fa-user" style="font-size:9px;margin-right:3px"></i>{{ $log->user->username }}</span>
-                            @endif
-                        </div>
-                        <div style="font-family:var(--mono);font-size:11px;color:var(--ink3)">{{ $log->source_ip ?? '—' }}</div>
-                    </div>
-
-                    <div>
-                        <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;background: {{ $status === 'pass' ? 'var(--ok-dim)' : ($status === 'route' ? 'var(--amber-dim)' : ($status === 'fail' ? 'var(--danger-dim)' : 'var(--grey-dim)')) }};color: {{ $status === 'pass' ? 'var(--ok)' : ($status === 'route' ? 'var(--amber)' : ($status === 'fail' ? 'var(--danger)' : 'var(--grey)')) }}">
-                            <span style="width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow: {{ $status === 'pass' ? '0 0 6px var(--ok)' : ($status === 'route' ? '0 0 6px var(--amber)' : ($status === 'fail' ? '0 0 6px var(--danger)' : '')) }}"></span>
-                            <span class="status-text">{{ $status }}</span>
-                        </span>
-                    </div>
-
-                    <div></div>
-
-                    <div style="min-width:0" class="channel-test-cell">
-                        @if($status === 'pass')
-                            <form method="POST" action="{{ route('tests.test', $log->id) }}" style="margin:0;display:inline-flex;align-items:center;gap:8px" onsubmit="return startChTest(this, {{ $log->id }})">
-                                @csrf
-                                <button type="submit" class="btn-sm btn-channel"><i class="fa-solid fa-signal"></i>Test Channel</button>
-                                <input type="number" class="ch-input-sm" name="call_count" id="cc_input_{{ $log->id }}" value="5" min="1" max="100" title="Number of calls to test">
-                            </form>
-                        @else
-                            <div style="display:inline-flex;align-items:center;gap:8px">
-                                <button type="button" class="btn-sm btn-channel" style="opacity:.4;cursor:not-allowed" onclick="showErrModal('DID status must be PASS to run channel test. Current: {{ strtoupper($status) }}')">
-                                    <i class="fa-solid fa-lock"></i>Channel
-                                </button>
-                                <input type="number" class="ch-input-sm" value="5" disabled style="opacity:.4">
+        <table class="table-compact">
+            <thead>
+                <tr>
+                    <th style="width:50px;text-align:center">#</th>
+                    <th style="width:28%;text-align:left">DID / Source IP</th>
+                    <th style="width:14%;text-align:left">Status</th>
+                    <th style="width:22%;text-align:left">Channel Test</th>
+                    <th style="width:16%;text-align:center">Channels Found</th>
+                    <th style="width:20%;text-align:right">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @php $serialNumber = $totalDids; @endphp
+                @forelse($callLogs as $log)
+                    @php
+                        $status = !empty($log->status) ? strtolower(trim($log->status)) : 'pending';
+                        if (!in_array($status, ['pass', 'fail', 'route'])) $status = 'pending';
+                        $channelsDetected = $log->checked_channels !== null ? (int)$log->checked_channels : '—';
+                    @endphp
+                    <tr data-id="{{ $log->id }}">
+                        <td style="text-align:center;color:var(--ink3);font-family:var(--mono);font-size:11px">{{ $serialNumber-- }}</td>
+                        <td>
+                            <div style="display:flex;flex-direction:column;gap:2px">
+                                <div style="font-family:var(--mono);font-weight:700;color:var(--ink1);font-size:12.5px">
+                                    {{ $log->phone_number }}
+                                    @if($log->user)
+                                        <span title="Provisioned by {{ $log->user->username }}" style="font-size:9.5px;font-weight:600;padding:1px 5px;background:var(--primary-dim);color:var(--primary);border-radius:3px;margin-left:4px;font-family:var(--ui)">{{ $log->user->username }}</span>
+                                    @endif
+                                </div>
+                                <div style="font-family:var(--mono);font-size:10.5px;color:var(--ink3)">{{ $log->source_ip ?? '—' }}</div>
                             </div>
-                        @endif
-                    </div>
-
-                    <div style="text-align:center">
-                        <span style="font-family:var(--mono);font-weight:800;font-size:19px;color:var(--ink1);padding:2px 8px;min-width:30px;display:inline-block">{{ $channelsDetected }}</span>
-                    </div>
-
-                    <div></div>
-
-                    <div style="min-width:0;display:flex;justify-content:center;flex-wrap:wrap;gap:6px">
-                        <form method="POST" action="{{ route('dashboard.mark-route', $log->id) }}" style="margin:0">
-                            @csrf
-                            <button type="submit" class="btn-sm btn-route"><i class="fa-solid fa-route"></i>Route</button>
-                        </form>
-                        <form method="POST" action="{{ route('dashboard.reset', $log->id) }}" style="margin:0">
-                            @csrf
-                            <button type="submit" class="btn-sm btn-reset"><i class="fa-solid fa-rotate-left"></i>Reset</button>
-                        </form>
-                        <form method="POST" action="{{ route('dashboard.destroy', $log->id) }}" style="margin:0" onsubmit="return confirm('Remove this DID?')">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="btn-sm btn-del"><i class="fa-solid fa-trash-can"></i>Delete</button>
-                        </form>
-                    </div>
-                </div>
-            @empty
-                <div style="padding:40px 20px;text-align:center;color:var(--ink3)">
-                    <i class="fa-solid fa-inbox" style="font-size:32px;margin-bottom:12px;opacity:.5;display:block"></i>
-                    No DIDs provisioned yet. Add one above to get started.
-                </div>
-            @endforelse
-        </div>
+                        </td>
+                        <td>
+                            <span class="spill s-{{ $status }}">
+                                <span class="sdot"></span>
+                                <span class="status-text">{{ ucfirst($status) }}</span>
+                            </span>
+                        </td>
+                        <td class="channel-test-cell">
+                            @if($status === 'pass')
+                                <form method="POST" action="{{ route('tests.test', $log->id) }}" style="margin:0;display:inline-flex;align-items:center;gap:6px" onsubmit="return startChTest(this, {{ $log->id }})">
+                                    @csrf
+                                    <button type="submit" class="btn-sm btn-channel"><i class="fa-solid fa-signal"></i> Test</button>
+                                    <input type="number" class="ch-input-sm" name="call_count" id="cc_input_{{ $log->id }}" value="5" min="1" max="100" title="Number of calls">
+                                </form>
+                            @else
+                                <div style="display:inline-flex;align-items:center;gap:6px">
+                                    <button type="button" class="btn-sm btn-channel" style="opacity:.4;cursor:not-allowed" onclick="showErrModal('DID status must be PASS to run channel test. Current: {{ strtoupper($status) }}')">
+                                        <i class="fa-solid fa-lock"></i> Test
+                                    </button>
+                                    <input type="number" class="ch-input-sm" value="5" disabled style="opacity:.4">
+                                </div>
+                            @endif
+                        </td>
+                        <td style="text-align:center">
+                            <span style="font-family:var(--mono);font-weight:700;font-size:14px;color:var(--ink1)">{{ $channelsDetected }}</span>
+                        </td>
+                        <td style="text-align:right">
+                            <div style="display:inline-flex;align-items:center;gap:4px">
+                                <form method="POST" action="{{ route('dashboard.mark-route', $log->id) }}" style="margin:0">
+                                    @csrf
+                                    <button type="submit" class="btn-sm btn-route" title="Mark as Route"><i class="fa-solid fa-route"></i> Route</button>
+                                </form>
+                                <form method="POST" action="{{ route('dashboard.reset', $log->id) }}" style="margin:0">
+                                    @csrf
+                                    <button type="submit" class="btn-sm btn-reset" title="Reset Status"><i class="fa-solid fa-rotate-left"></i></button>
+                                </form>
+                                <form method="POST" action="{{ route('dashboard.destroy', $log->id) }}" style="margin:0" onsubmit="return confirm('Remove this DID?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn-sm btn-del" title="Delete"><i class="fa-solid fa-trash-can"></i></button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="6" style="padding:28px;text-align:center;color:var(--ink3);font-family:var(--mono);font-size:12px">
+                            No DIDs provisioned yet. Add one above to get started.
+                        </td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
     </div>
 </div>
 

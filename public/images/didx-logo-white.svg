@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 70" width="240" height="70">
+  <defs>
+    <style>
+      .white-text { fill: #FFFFFF; font-family: 'Sora', 'Montserrat', 'Arial Black', sans-serif; font-weight: 900; }
+      .orange-part { fill: #E8551E; }
+    </style>
+  </defs>
+  <!-- DID text in white -->
+  <text x="10" y="52" class="white-text" font-size="52" letter-spacing="-1">DID</text>
+  
+  <!-- Custom Stylized X -->
+  <!-- Left orange chevron -->
+  <polygon points="128,15 152,15 174,40 152,65 128,65 150,40" class="orange-part" />
+  <!-- Right white chevron -->
+  <polygon points="186,15 162,15 140,40 162,65 186,65 164,40" class="white-text" />
+</svg>

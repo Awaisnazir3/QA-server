@@ -29,9 +29,11 @@ class AbuseDetectorController extends Controller
 
         $dids = AbuseDid::orderBy('hits_count', 'desc')->orderBy('last_hit_at', 'desc')->get();
         $stats = $this->calculateStats($dids);
+        $top5 = $dids->take(5);
 
         return view('operations.abuse-dids', [
             'dids' => $dids,
+            'top5' => $top5,
             'stats' => $stats,
         ]);
     }
@@ -64,9 +66,12 @@ class AbuseDetectorController extends Controller
             ];
         });
 
+        $top5 = $formattedDids->take(5)->values();
+
         return response()->json([
             'success' => true,
             'dids' => $formattedDids,
+            'top5' => $top5,
             'stats' => $stats,
         ]);
     }

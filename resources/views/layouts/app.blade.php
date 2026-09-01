@@ -88,57 +88,70 @@
         .slabel::after{content:'';flex:1;height:1px;background:var(--border)}
         .slabel i{color:var(--primary)}
 
-        .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px;margin-bottom:18px;box-shadow:0 1px 2px rgba(20,20,50,.03)}
-        .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--bordersoft)}
-        .card-title{font-size:14px;font-weight:700;color:var(--ink1);display:flex;align-items:center;gap:8px}
-        .card-title i{color:var(--primary);font-size:13px}
-        .cbadge{font-size:11px;font-family:var(--mono);background:var(--primary-dim);color:var(--primary);border:1px solid var(--primary-line);padding:4px 11px;border-radius:20px;font-weight:600}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:16px;box-shadow:0 1px 2px rgba(20,20,50,.02)}
+        .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--bordersoft)}
+        .card-title{font-size:13.5px;font-weight:700;color:var(--ink1);display:flex;align-items:center;gap:8px}
+        .card-title i{color:var(--primary);font-size:12.5px}
+        .cbadge{font-size:11px;font-family:var(--mono);background:var(--surface2);color:var(--ink2);border:1px solid var(--border);padding:3px 8px;border-radius:4px;font-weight:600}
 
-        .btn-hangup{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:var(--rs);font-size:11.5px;font-weight:700;background:var(--danger-dim);color:var(--danger);border:1px solid rgba(224,57,63,.25);cursor:pointer}
-        .btn-hangup:hover{background:rgba(224,57,63,.16)}
+        .btn-hangup{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:5px;font-size:11.5px;font-weight:600;background:var(--danger-dim);color:var(--danger);border:1px solid rgba(224,57,63,.25);cursor:pointer;transition:all .15s}
+        .btn-hangup:hover{background:var(--danger);color:#fff}
         .btn-hangup.flashing{animation:hflash .65s infinite}
         @keyframes hflash{0%,100%{background:var(--danger-dim);color:var(--danger)}50%{background:var(--danger);color:#fff}}
 
-        .btn-primary{padding:9px 16px;background:linear-gradient(135deg,var(--primary),#7a6bf9);color:#fff;border-radius:var(--rs);font-size:12.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;transition:transform .12s,box-shadow .12s;box-shadow:0 4px 12px rgba(97,83,246,.28);border:none;cursor:pointer}
-        .btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(97,83,246,.36)}
+        .btn-primary{padding:6px 14px;background:var(--primary);color:#fff;border-radius:5px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;transition:background .15s,opacity .15s;border:1px solid var(--primary);cursor:pointer}
+        .btn-primary:hover{background:var(--primary-dk);border-color:var(--primary-dk);color:#fff}
 
-        .btn-sm{display:inline-flex;align-items:center;gap:5px;padding:7px 11px;border-radius:var(--rs);font-size:11px;font-weight:600;transition:all .15s;white-space:nowrap;border:none;cursor:pointer}
-        .btn-route{background:var(--ok-dim);color:var(--ok);border:1px solid rgba(15,166,106,.25)} .btn-route:hover{background:rgba(15,166,106,.2)}
-        .btn-reset{background:var(--surface);color:var(--ink2);border:1px solid var(--border)} .btn-reset:hover{border-color:var(--ink3);color:var(--ink1)}
-        .btn-del{background:var(--danger-dim);color:var(--danger);border:1px solid rgba(224,57,63,.25)} .btn-del:hover{background:rgba(224,57,63,.2)}
-        .btn-channel{background:var(--violet-dim);color:var(--violet);border:1px solid rgba(133,70,232,.25)} .btn-channel:hover{background:rgba(133,70,232,.2)}
+        .btn-sm{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:4px;font-size:11px;font-weight:600;transition:all .15s;white-space:nowrap;border:none;cursor:pointer}
+        .btn-route{background:var(--ok-dim);color:var(--ok);border:1px solid rgba(15,166,106,.25)} .btn-route:hover{background:var(--ok);color:#fff}
+        .btn-reset{background:var(--surface2);color:var(--ink2);border:1px solid var(--border)} .btn-reset:hover{background:var(--hover);color:var(--ink1)}
+        .btn-del{background:var(--danger-dim);color:var(--danger);border:1px solid rgba(224,57,63,.25)} .btn-del:hover{background:var(--danger);color:#fff}
+        .btn-channel{background:var(--violet-dim);color:var(--violet);border:1px solid rgba(133,70,232,.25)} .btn-channel:hover{background:var(--violet);color:#fff}
         .btn-channel:disabled{opacity:.4;cursor:not-allowed}
         .btn-disabled{opacity:.4;cursor:not-allowed !important}
 
-        .ch-input-sm{width:48px;height:32px;padding:2px 4px;border:1px solid var(--border);border-radius:var(--rs);background:var(--surface);color:var(--ink1);font-family:var(--mono);font-size:13px;font-weight:700;text-align:center;outline:none;transition:border-color .2s,box-shadow .2s}
+        .ch-input-sm{width:44px;height:26px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink1);font-family:var(--mono);font-size:12px;font-weight:700;text-align:center;outline:none;transition:border-color .15s}
         .ch-input-sm:focus{border-color:var(--violet);box-shadow:0 0 0 2px var(--violet-dim)}
         .ch-input-sm:disabled{opacity:.35}
         .input-disabled{opacity:.4 !important;cursor:not-allowed !important}
 
-        .ch-res-badge{font-family:var(--mono);font-weight:800;font-size:19px;color:var(--ink1);padding:2px 8px;min-width:30px;text-align:center;display:inline-block}
+        .ch-res-badge{font-family:var(--mono);font-weight:700;font-size:15px;color:var(--ink1);padding:1px 6px;min-width:24px;text-align:center;display:inline-block}
+
+        /* Clean Table Utilities */
+        .table-compact{width:100%;border-collapse:collapse;font-size:12.5px;text-align:left}
+        .table-compact th{padding:8px 12px;border-bottom:1px solid var(--border);color:var(--ink3);font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:0.6px;font-weight:600;background:var(--surface2)}
+        .table-compact td{padding:8px 12px;border-bottom:1px solid var(--bordersoft);vertical-align:middle}
+        .table-compact tbody tr:hover{background:var(--hover)}
+
+        /* Status Dot Styling */
+        .status-dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0}
+        .status-pass{background:var(--ok)}
+        .status-fail{background:var(--danger)}
+        .status-route{background:var(--amber)}
+        .status-pending{background:var(--grey)}
+        .status-dialing{background:var(--violet)}
 
         /* Section visibility control */
         .view-section{display:none}
         .view-section.active-view{display:block}
 
-        .foot{text-align:center;padding:22px 0 0;font-size:10px;color:var(--ink3);font-family:var(--mono);border-top:1px solid var(--border);margin-top:26px;letter-spacing:.5px}
+        .foot{text-align:center;padding:18px 0 0;font-size:10px;color:var(--ink3);font-family:var(--mono);border-top:1px solid var(--border);margin-top:22px;letter-spacing:.5px}
 
-        .alert{padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:13px;font-weight:600}
+        .alert{padding:10px 14px;border-radius:6px;margin-bottom:14px;font-size:12.5px;font-weight:600}
         .alert-success{background:var(--ok-dim);color:var(--ok);border:1px solid rgba(15,166,106,.25)}
         .alert-error{background:var(--danger-dim);color:var(--danger);border:1px solid rgba(224,57,63,.25)}
         .alert-warning{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(221,139,10,.25)}
 
-        /* Status badge styling */
+        /* Clean Minimal Status pill */
         .spill {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 4px 11px;
-            border-radius: 20px;
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
+            gap: 5px;
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: capitalize;
         }
 
         .s-pending {
@@ -161,49 +174,36 @@
             color: var(--danger);
         }
 
-        .spill .sdot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: currentColor;
-        }
-
-        .s-pass .sdot {
-            box-shadow: 0 0 6px var(--ok);
-        }
-
-        .s-route .sdot {
-            box-shadow: 0 0 6px var(--amber);
-        }
-
-        .s-fail .sdot {
-            box-shadow: 0 0 6px var(--danger);
-        }
-
         .s-dialing {
             background: var(--violet-dim);
             color: var(--violet);
         }
-        .s-dialing .sdot {
-            box-shadow: 0 0 6px var(--violet);
-            animation: pulse-dot 1s infinite alternate;
+
+        .spill .sdot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: currentColor;
         }
 
         .btn-excel {
-            background: linear-gradient(135deg, #107c41, #1f9a55);
+            background: #107c41;
             color: #fff;
-            border: none;
-            box-shadow: 0 4px 12px rgba(16, 124, 65, 0.28);
+            border: 1px solid #107c41;
+            padding: 5px 11px;
+            font-size: 11.5px;
+            border-radius: 5px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background .15s;
         }
         .btn-excel:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 16px rgba(16, 124, 65, 0.36);
+            background: #0d6334;
             color: #fff;
-        }
-
-        @keyframes pulse-dot {
-            0% { transform: scale(0.8); opacity: 0.5; }
-            100% { transform: scale(1.3); opacity: 1; }
         }
     </style>
 </head>
@@ -211,12 +211,15 @@
     <div class="shell">
         <!-- SIDEBAR NAVIGATION -->
         <aside class="sidebar">
-            <div class="sb-brand">
-                <div class="sb-logo"><i class="fa-solid fa-tower-broadcast"></i></div>
-                <div>
-                    <div class="sb-brand-name">DIDX</div>
-                    <div class="sb-brand-sub">Softswitch Console</div>
-                </div>
+            <div class="sb-brand" style="padding:16px 16px 14px;border-bottom:1px solid var(--sidebar-line);margin-bottom:6px">
+                <a href="{{ route('dashboard') }}" style="display:flex;align-items:center;text-decoration:none;gap:10px">
+                    <div style="background:#ffffff;padding:6px 10px;border-radius:7px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.25)">
+                        <img src="{{ asset('images/didx-logo.svg') }}" alt="DIDX" style="height:24px;width:auto;display:block">
+                    </div>
+                    <div style="font-size:9.5px;color:var(--sidebar-ink3);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;line-height:1.3">
+                        Softswitch<br><span style="color:var(--sidebar-ink2);font-weight:700">Console</span>
+                    </div>
+                </a>
             </div>
             <nav class="sb-nav" id="sidebarNav">
                 <div class="sb-section-lbl">Operations</div>

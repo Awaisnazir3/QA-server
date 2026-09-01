@@ -9,98 +9,97 @@
 
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
     <!-- LEFT: Softphone Status & Settings -->
-    <div class="card">
-        <div class="card-head">
-            <div class="card-title"><i class="fa-solid fa-wifi"></i>Softphone Status</div>
+    <div class="card" style="margin-bottom:0;padding:16px 18px">
+        <div class="card-head" style="margin-bottom:12px;padding-bottom:10px">
+            <div class="card-title" style="font-size:13px"><i class="fa-solid fa-wifi"></i>Softphone Status</div>
         </div>
 
-        <div style="padding:20px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;flex-direction:column;gap:12px">
             <!-- Extension 63311 Status Badge -->
-            <div style="padding:16px;border-radius:8px;background:var(--surface2);border:2px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <div style="padding:10px 14px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
                 <div>
-                    <div style="font-weight:600;font-size:14px;color:var(--ink1)">Extension 63311</div>
-                    <div style="font-size:12px;color:var(--ink3);margin-top:4px">Softphone: Zoiper / MicroSIP / Linphone</div>
+                    <div style="font-weight:700;font-size:13px;color:var(--ink1);font-family:var(--mono)">Extension 63311</div>
+                    <div style="font-size:11px;color:var(--ink3);margin-top:2px">SIP: Zoiper / MicroSIP / Linphone</div>
                 </div>
-                <div id="softphoneStatusBadge" style="padding:12px 16px;border-radius:20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;display:flex;align-items:center;gap:8px;background:var(--grey-dim);color:#999">
-                    <span id="softphoneStatusDot" style="width:10px;height:10px;border-radius:50%;background:#999;box-shadow:0 0 8px #999"></span>
+                <div id="softphoneStatusBadge" style="padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:6px;background:var(--grey-dim);color:var(--grey)">
+                    <span id="softphoneStatusDot" style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>
                     <span id="softphoneStatusText">Checking...</span>
                 </div>
             </div>
 
             <!-- Configuration Info -->
-            <div style="padding:12px;background:var(--surface2);border-radius:6px;border-left:4px solid var(--primary);font-size:12px;color:var(--ink2)">
-                <div style="font-weight:600;color:var(--ink1);margin-bottom:8px">Configuration:</div>
-                <div style="display:grid;gap:4px;font-family:var(--mono);font-size:11px">
-                    <div>Server: <span style="color:var(--amber)">165.227.88.28</span></div>
-                    <div>Port: <span style="color:var(--amber)">5060</span> (UDP)</div>
-                    <div>Extension: <span style="color:var(--amber)">63311</span></div>
-                    <div>Password: <span style="color:var(--amber)">f63311</span></div>
+            <div style="padding:10px 12px;background:var(--surface2);border-radius:6px;border-left:3px solid var(--primary);font-size:11.5px;color:var(--ink2)">
+                <div style="font-weight:700;color:var(--ink1);margin-bottom:6px">Configuration:</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-family:var(--mono);font-size:11px">
+                    <div>Server: <span style="color:var(--ink1);font-weight:600">165.227.88.28</span></div>
+                    <div>Port: <span style="color:var(--ink1);font-weight:600">5060 UDP</span></div>
+                    <div>Ext: <span style="color:var(--ink1);font-weight:600">63311</span></div>
+                    <div>Pass: <span style="color:var(--ink1);font-weight:600">f63311</span></div>
                 </div>
             </div>
 
             <!-- Auto-Refresh Toggle -->
-            <div style="display:flex;align-items:center;gap:12px">
-                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;flex:1">
-                    <input type="checkbox" id="autoRefresh" checked style="cursor:pointer;width:16px;height:16px">
-                    <span style="color:var(--ink2);font-size:13px">Auto-refresh status (3s)</span>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;font-size:11.5px;color:var(--ink2)">
+                    <input type="checkbox" id="autoRefresh" checked style="cursor:pointer;width:14px;height:14px">
+                    <span>Auto-refresh (3s)</span>
                 </label>
-                <button type="button" onclick="checkSoftphoneStatus()" style="padding:8px 14px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap">
-                    <i class="fa-solid fa-sync"></i>Check Now
+                <button type="button" class="btn-sm btn-reset" onclick="checkSoftphoneStatus()">
+                    <i class="fa-solid fa-sync"></i> Refresh
                 </button>
             </div>
         </div>
     </div>
 
     <!-- RIGHT: Dial Pad & Caller ID -->
-    <div class="card">
-        <div class="card-head">
-            <div class="card-title"><i class="fa-solid fa-keypad"></i>Dial Pad</div>
+    <div class="card" style="margin-bottom:0;padding:16px 18px">
+        <div class="card-head" style="margin-bottom:12px;padding-bottom:10px">
+            <div class="card-title" style="font-size:13px"><i class="fa-solid fa-keypad"></i>Dial Pad</div>
         </div>
 
-        <div style="padding:20px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;flex-direction:column;gap:10px">
             <!-- Caller ID (Outbound Route) Selection -->
             <div>
-                <label style="display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);margin-bottom:8px">Caller ID (Outbound Route)</label>
-                <select id="callerId" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--surface);color:var(--ink1);font-family:var(--mono)">
-                    <option value="">-- Select Route --</option>
+                <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);margin-bottom:4px">Caller ID</label>
+                <select id="callerId" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:12px;background:var(--surface2);color:var(--ink1);font-family:var(--mono);outline:none">
+                    <option value="">-- Select Outbound Route --</option>
                     @foreach($routes as $route)
                         <option value="{{ $route->phone_number }}">{{ $route->phone_number }} ({{ $route->status }})</option>
                     @endforeach
                 </select>
-                <div style="font-size:11px;color:var(--ink3);margin-top:6px">Select the phone number to show as caller ID when making outbound calls</div>
             </div>
 
             <!-- Dial Number Input -->
             <div>
-                <label style="display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);margin-bottom:8px">Dial Number</label>
-                <input type="tel" id="calleeNumber" placeholder="Enter phone number" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;background:var(--surface);color:var(--ink1);font-family:var(--mono);letter-spacing:1px" value="">
+                <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);margin-bottom:4px">Destination Number</label>
+                <input type="tel" id="calleeNumber" placeholder="Enter phone number..." style="width:100%;padding:7px 11px;border:1px solid var(--border);border-radius:5px;font-size:13px;background:var(--surface2);color:var(--ink1);font-family:var(--mono);letter-spacing:0.5px;outline:none" value="">
             </div>
 
             <!-- Dialer Keypad -->
-            <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px">
+            <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:6px">
                 @foreach(['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'] as $digit)
-                    <button type="button" class="dialer-btn" data-digit="{{ $digit }}" style="padding:14px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--ink1);font-weight:600;font-size:18px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center">
+                    <button type="button" class="dialer-btn" data-digit="{{ $digit }}" style="padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--ink1);font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--mono)">
                         {{ $digit }}
                     </button>
                 @endforeach
             </div>
 
             <!-- Call Control Buttons -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
-                <button id="callBtn" type="button" style="padding:12px;background:var(--ok);color:#fff;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px" onclick="makeCall()">
-                    <i class="fa-solid fa-phone"></i>Call
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <button id="callBtn" type="button" class="btn-primary" style="padding:8px;font-size:12px;background:var(--ok);border-color:var(--ok)" onclick="makeCall()">
+                    <i class="fa-solid fa-phone"></i> Call
                 </button>
-                <button id="hangupBtn" type="button" style="padding:12px;background:var(--danger);color:#fff;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;opacity:.5;pointer-events:none" onclick="hangupCall()">
-                    <i class="fa-solid fa-phone-slash"></i>Hangup
+                <button id="hangupBtn" type="button" class="btn-hangup" style="padding:8px;font-size:12px;opacity:.5;pointer-events:none;justify-content:center" onclick="hangupCall()">
+                    <i class="fa-solid fa-phone-slash"></i> Hangup
                 </button>
             </div>
 
             <!-- Backspace/Clear -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                <button type="button" onclick="backspace()" style="padding:10px;background:var(--surface2);color:var(--ink1);border:1px solid var(--border);border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
-                    <i class="fa-solid fa-delete-left"></i>Backspace
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <button type="button" class="page-btn" onclick="backspace()" style="justify-content:center">
+                    <i class="fa-solid fa-delete-left"></i> Backspace
                 </button>
-                <button type="button" onclick="clearInput()" style="padding:10px;background:var(--surface2);color:var(--ink1);border:1px solid var(--border);border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">
+                <button type="button" class="page-btn" onclick="clearInput()" style="justify-content:center">
                     Clear
                 </button>
             </div>
@@ -109,52 +108,52 @@
 </div>
 
 <!-- Call Status & Info -->
-<div id="callStatusContainer" style="display:none;margin-bottom:20px">
-    <div class="card">
-        <div style="padding:20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+<div id="callStatusContainer" style="display:none;margin-bottom:16px">
+    <div class="card" style="padding:14px 18px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
             <div>
-                <div style="font-size:11px;color:var(--ink3);text-transform:uppercase;font-weight:600;margin-bottom:6px">From</div>
-                <div style="font-size:14px;font-weight:600;color:var(--ink1);font-family:var(--mono)" id="callFrom">—</div>
+                <div style="font-size:10.5px;color:var(--ink3);text-transform:uppercase;font-weight:600;margin-bottom:3px">From</div>
+                <div style="font-size:13px;font-weight:700;color:var(--ink1);font-family:var(--mono)" id="callFrom">—</div>
             </div>
             <div>
-                <div style="font-size:11px;color:var(--ink3);text-transform:uppercase;font-weight:600;margin-bottom:6px">To</div>
-                <div style="font-size:14px;font-weight:600;color:var(--ink1);font-family:var(--mono)" id="callTo">—</div>
+                <div style="font-size:10.5px;color:var(--ink3);text-transform:uppercase;font-weight:600;margin-bottom:3px">To</div>
+                <div style="font-size:13px;font-weight:700;color:var(--ink1);font-family:var(--mono)" id="callTo">—</div>
             </div>
             <div>
-                <div style="font-size:11px;color:var(--ink3);text-transform:uppercase;font-weight:600;margin-bottom:6px">Duration</div>
-                <div style="font-size:14px;font-weight:600;color:var(--ink1);font-family:var(--mono)" id="callDuration">00:00</div>
+                <div style="font-size:10.5px;color:var(--ink3);text-transform:uppercase;font-weight:600;margin-bottom:3px">Duration</div>
+                <div style="font-size:13px;font-weight:700;color:var(--ok);font-family:var(--mono)" id="callDuration">00:00</div>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Call History -->
-<div class="card">
-    <div class="card-head">
-        <div class="card-title"><i class="fa-solid fa-history"></i>Call History</div>
-        <div style="display:flex;gap:10px">
-            <button class="filter-btn active" data-filter="all" onclick="filterHistory('all')">All</button>
-            <button class="filter-btn" data-filter="outbound" onclick="filterHistory('outbound')">Outbound</button>
-            <button class="filter-btn" data-filter="inbound" onclick="filterHistory('inbound')">Inbound</button>
+<div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface);flex-wrap:wrap;gap:10px">
+        <div class="card-title" style="font-size:13.5px"><i class="fa-solid fa-history"></i>Call History</div>
+        <div style="display:flex;gap:4px">
+            <button class="page-btn active" data-filter="all" onclick="filterHistory('all')">All</button>
+            <button class="page-btn" data-filter="outbound" onclick="filterHistory('outbound')">Outbound</button>
+            <button class="page-btn" data-filter="inbound" onclick="filterHistory('inbound')">Inbound</button>
         </div>
     </div>
 
     <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:13px;text-align:left;min-width:800px">
+        <table class="table-compact">
             <thead>
-                <tr style="border-bottom:1px solid var(--border);color:var(--ink3);font-size:10.5px;text-transform:uppercase;font-family:var(--mono)">
-                    <th style="padding:10px 14px">From</th>
-                    <th style="padding:10px 14px">To</th>
-                    <th style="padding:10px 14px">Direction</th>
-                    <th style="padding:10px 14px">Status</th>
-                    <th style="padding:10px 14px">Duration</th>
-                    <th style="padding:10px 14px">Time</th>
-                    <th style="padding:10px 14px;text-align:center">Action</th>
+                <tr>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Direction</th>
+                    <th>Status</th>
+                    <th style="text-align:center">Duration</th>
+                    <th>Time</th>
+                    <th style="text-align:right">Action</th>
                 </tr>
             </thead>
             <tbody id="historyBody">
                 <tr>
-                    <td colspan="7" style="text-align:center;padding:24px;color:var(--ink3)">Loading call history...</td>
+                    <td colspan="7" style="text-align:center;padding:24px;color:var(--ink3);font-family:var(--mono);font-size:12px">Loading call history...</td>
                 </tr>
             </tbody>
         </table>
@@ -163,38 +162,12 @@
 
 <style>
     .dialer-btn {
-        transition: all 0.15s;
+        transition: all 0.12s;
     }
-    
     .dialer-btn:hover {
-        background: var(--primary);
-        color: #fff;
-        transform: scale(1.05);
-    }
-    
-    .dialer-btn:active {
-        transform: scale(0.95);
-    }
-    
-    .filter-btn {
-        padding: 6px 14px;
-        border: 1px solid var(--border);
-        background: var(--surface);
-        color: var(--ink2);
-        border-radius: 4px;
-        font-size: 12px;
-        cursor: pointer;
-        transition: all 0.15s;
-    }
-    
-    .filter-btn.active {
-        background: var(--primary);
-        color: #fff;
-        border-color: var(--primary);
-    }
-    
-    .filter-btn:hover {
-        border-color: var(--primary);
+        background: var(--primary) !important;
+        color: #fff !important;
+        border-color: var(--primary) !important;
     }
 </style>
 

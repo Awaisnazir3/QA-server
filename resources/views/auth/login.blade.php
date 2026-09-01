@@ -184,7 +184,9 @@
 <body>
     <div class="login-container">
         <div class="login-header">
-            <div class="logo-box"><i class="fa-solid fa-tower-broadcast"></i></div>
+            <div class="logo-box" style="width:auto;height:auto;background:none;box-shadow:none;border-radius:0;margin:0 auto 12px">
+            <img src="{{ asset('images/didx-logo.svg') }}" alt="DIDX" style="height:44px;width:auto;display:block;margin:0 auto">
+        </div>
             <h1 class="title">Welcome to DIDX</h1>
             <p class="subtitle">Softswitch Control Console</p>
         </div>

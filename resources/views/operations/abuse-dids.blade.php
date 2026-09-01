@@ -6,137 +6,134 @@
 
 @section('content')
 <style>
-    .hit-badge {
+    /* Clean, compact, professional styling */
+    .table-compact {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12.5px;
+        text-align: left;
+    }
+    .table-compact th {
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+        color: var(--ink3);
         font-family: var(--mono);
-        font-weight: 800;
-        font-size: 13px;
-        padding: 4px 12px;
-        border-radius: 20px;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        font-weight: 600;
+        background: var(--surface2);
     }
-    .hit-low {
-        background: var(--primary-dim);
-        color: var(--primary);
-        border: 1px solid var(--primary-line);
+    .table-compact td {
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--bordersoft);
+        vertical-align: middle;
     }
-    .hit-mid {
-        background: var(--amber-dim);
-        color: var(--amber);
-        border: 1px solid rgba(221,139,10,0.35);
+    .table-compact tbody tr:hover {
+        background: var(--hover);
     }
-    .hit-high {
-        background: var(--danger-dim);
-        color: var(--danger);
-        border: 1px solid rgba(224,57,63,0.4);
-        animation: pulse-danger 1.5s infinite;
+    .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        display: inline-block;
+        flex-shrink: 0;
     }
-    @keyframes pulse-danger {
-        0%, 100% { box-shadow: 0 0 0 0 rgba(224,57,63,0.3); }
-        50% { box-shadow: 0 0 0 6px rgba(224,57,63,0); }
+    .status-rejected {
+        background: var(--danger);
     }
     .row-hit-flash {
-        animation: rowFlash 1.4s ease-out;
+        animation: subtleFlash 1s ease-out;
     }
-    @keyframes rowFlash {
-        0% { background-color: rgba(224, 57, 63, 0.3) !important; transform: scale(1.01); }
-        100% { background-color: transparent; transform: scale(1); }
+    @keyframes subtleFlash {
+        0% { background-color: rgba(97, 83, 246, 0.12) !important; }
+        100% { background-color: transparent; }
     }
-    .trunk-pill {
-        font-family: var(--mono);
-        font-size: 11px;
-        font-weight: 600;
-        padding: 3px 9px;
-        border-radius: 6px;
-        background: var(--surface2);
+    .page-btn {
+        padding: 4px 10px;
         border: 1px solid var(--border);
-        color: var(--ink2);
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-    }
-    .live-pulse-indicator {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        font-family: var(--mono);
-        font-size: 11px;
-        font-weight: 700;
-        padding: 6px 12px;
-        border-radius: 20px;
-        background: var(--ok-dim);
-        color: var(--ok);
-        border: 1px solid rgba(15,166,106,0.3);
-    }
-    .live-pulse-indicator .pdot {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        background: var(--ok);
-        box-shadow: 0 0 8px var(--ok);
-        animation: blink 1.5s infinite;
-    }
-    .modal-backdrop {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        background: rgba(0, 0, 0, 0.55);
-        backdrop-filter: blur(4px);
-        display: none;
-        align-items: center;
-        justify-content: center;
-        z-index: 9999;
-    }
-    .modal-box {
         background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        width: 90%;
-        max-width: 600px;
-        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
-        overflow: hidden;
-        animation: modalIn 0.2s ease-out;
+        color: var(--ink2);
+        border-radius: 5px;
+        font-family: var(--mono);
+        font-size: 11.5px;
+        cursor: pointer;
+        transition: all 0.15s;
     }
-    @keyframes modalIn {
-        from { opacity: 0; transform: scale(0.95); }
-        to { opacity: 1; transform: scale(1); }
+    .page-btn:hover:not(:disabled) {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+    }
+    .page-btn:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+    }
+    .page-btn.active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+        font-weight: 700;
+    }
+    .btn-action-del {
+        padding: 3px 8px;
+        border: 1px solid rgba(224, 57, 63, 0.3);
+        background: var(--danger-dim);
+        color: var(--danger);
+        border-radius: 4px;
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .btn-action-del:hover {
+        background: var(--danger);
+        color: #fff;
+    }
+    .btn-icon-copy {
+        background: transparent;
+        border: none;
+        color: var(--ink3);
+        cursor: pointer;
+        font-size: 11px;
+        padding: 2px 4px;
+        border-radius: 3px;
+        transition: color 0.15s;
+    }
+    .btn-icon-copy:hover {
+        color: var(--primary);
     }
 </style>
 
 <!-- STATS OVERVIEW -->
 <div class="statrow">
     <div class="stat-card sc-primary">
-        <div class="stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <div class="stat-icon"><i class="fa-solid fa-shield-virus"></i></div>
         <div>
             <div class="stat-lbl">Abused DIDs Detected</div>
             <div class="stat-val" id="statTotalDids">{{ $stats['totalCount'] }}</div>
         </div>
     </div>
     <div class="stat-card sc-amber">
-        <div class="stat-icon"><i class="fa-solid fa-arrows-to-circle"></i></div>
+        <div class="stat-icon"><i class="fa-solid fa-chart-simple"></i></div>
         <div>
-            <div class="stat-lbl">Total Abuse Hits</div>
+            <div class="stat-lbl">Total Hits Recorded</div>
             <div class="stat-val" id="statTotalHits" style="color:var(--amber)">{{ $stats['totalHits'] }}</div>
         </div>
     </div>
     <div class="stat-card sc-violet">
-        <div class="stat-icon"><i class="fa-solid fa-fire"></i></div>
+        <div class="stat-icon"><i class="fa-solid fa-crosshairs"></i></div>
         <div>
-            <div class="stat-lbl">Top Offender DID</div>
-            <div class="stat-val" id="statTopDid" style="font-size:15px;color:var(--danger)">
+            <div class="stat-lbl">Top Targeted DID</div>
+            <div class="stat-val" id="statTopDid" style="font-size:14px;color:var(--danger)">
                 {{ $stats['topDid'] }} 
                 @if($stats['topHits'] > 0)
-                    <span style="font-size:11px;color:var(--ink2)">({{ $stats['topHits'] }} hits)</span>
+                    <span style="font-size:11px;color:var(--ink3);font-weight:500">({{ $stats['topHits'] }} hits)</span>
                 @endif
             </div>
         </div>
     </div>
     <div class="stat-card sc-teal">
-        <div class="stat-icon"><i class="fa-solid fa-network-wired"></i></div>
+        <div class="stat-icon"><i class="fa-solid fa-server"></i></div>
         <div>
             <div class="stat-lbl">Active Inbound Trunks</div>
             <div class="stat-val" id="statTrunks" style="color:var(--teal)">{{ $stats['uniqueTrunks'] }}</div>
@@ -144,130 +141,84 @@
     </div>
 </div>
 
-<!-- SECTION HEADER & MAIN TABLE -->
-<div class="slabel"><i class="fa-solid fa-shield-virus"></i>Live Abuse DIDs Detection Monitor</div>
+<!-- TOP 5 OFFENDER DIDS (SEPARATE DEDICATED SECTION) -->
+<div class="slabel"><i class="fa-solid fa-list-check"></i>Top 5 Offender DIDs</div>
 
-<div class="card">
-    <div class="card-head">
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-            <div class="card-title"><i class="fa-solid fa-list-ol"></i>Detected Abused Numbers</div>
-            <div class="live-pulse-indicator" id="liveIndicator">
-                <span class="pdot"></span>
-                <span id="liveStatusText">Live Scanning Active (2.5s)</span>
-            </div>
+<div class="card" style="padding:0;overflow:hidden;margin-bottom:20px">
+    <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2)">
+        <div style="font-size:13px;font-weight:700;color:var(--ink1);display:flex;align-items:center;gap:8px">
+            <i class="fa-solid fa-arrow-trend-up" style="color:var(--danger);font-size:12px"></i>
+            Most Targeted Phone Numbers
         </div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <!-- Search & Filter -->
-            <input type="text" id="tableSearch" placeholder="Filter DID / Trunk..." onkeyup="filterAbuseTable()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--rs);background:var(--surface2);color:var(--ink1);font-family:var(--mono);font-size:12px;outline:none;width:170px">
-            
-            <!-- Paste Logs Modal Button -->
-            <button type="button" class="btn-primary" onclick="openPasteModal()" style="padding:7px 13px;font-size:11.5px">
-                <i class="fa-solid fa-paste"></i> Paste Asterisk Logs
-            </button>
-
-            <!-- Add Single DID Modal Button -->
-            <button type="button" class="btn-sm btn-reset" onclick="openAddDidModal()" style="padding:7px 13px;font-size:11.5px">
-                <i class="fa-solid fa-plus"></i> Add DID
-            </button>
-
-            <!-- Pause/Resume Live Toggle -->
-            <button type="button" class="btn-sm btn-reset" id="toggleLiveBtn" onclick="toggleLiveScanning()">
-                <i class="fa-solid fa-pause"></i> Pause Feed
-            </button>
-
-            <!-- Excel Export -->
-            <a href="{{ route('abuse-dids.export') }}" class="btn-primary btn-excel" style="padding:7px 13px;font-size:11.5px;text-decoration:none">
-                <i class="fa-solid fa-file-excel"></i> Export CSV
-            </a>
-
-            <!-- Clear All -->
-            <form method="POST" action="{{ route('abuse-dids.clear-all') }}" style="margin:0" onsubmit="return confirm('Are you sure you want to clear ALL detected abuse DIDs?')">
-                @csrf
-                @method('DELETE')
-                <button type="submit" class="btn-sm btn-del" style="padding:7px 13px;font-size:11.5px"><i class="fa-solid fa-trash-can"></i> Clear All</button>
-            </form>
-        </div>
+        <span style="font-size:11px;color:var(--ink3);font-family:var(--mono)">Ranked by total hit frequency</span>
     </div>
-
-    <!-- MAIN ABUSE TABLE -->
     <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:13px;text-align:left">
+        <table class="table-compact">
             <thead>
-                <tr style="border-bottom:1px solid var(--border);color:var(--ink3);font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:0.7px">
-                    <th style="padding:10px 14px">#</th>
-                    <th style="padding:10px 14px">DID / Phone Number</th>
-                    <th style="padding:10px 14px">Source Trunk</th>
-                    <th style="padding:10px 14px;text-align:center">Total Hits</th>
-                    <th style="padding:10px 14px">Status</th>
-                    <th style="padding:10px 14px">First Detected</th>
-                    <th style="padding:10px 14px">Last Hit</th>
-                    <th style="padding:10px 14px;text-align:right">Actions</th>
+                <tr>
+                    <th style="width:50px;text-align:center">Rank</th>
+                    <th style="width:24%;text-align:left">DID / Phone Number</th>
+                    <th style="width:18%;text-align:left">Source Trunk</th>
+                    <th style="width:10%;text-align:center">Hits</th>
+                    <th style="width:12%;text-align:left">Status</th>
+                    <th style="width:14%;text-align:left">First Hit</th>
+                    <th style="width:14%;text-align:left">Last Hit</th>
+                    <th style="width:8%;text-align:right">Action</th>
                 </tr>
             </thead>
-            <tbody id="abuseTableBody">
-                @forelse($dids as $idx => $did)
-                    @php
-                        $hitClass = 'hit-low';
-                        if ($did->hits_count >= 5) {
-                            $hitClass = 'hit-high';
-                        } elseif ($did->hits_count >= 2) {
-                            $hitClass = 'hit-mid';
-                        }
-                    @endphp
-                    <tr id="row-{{ $did->phone_number }}" data-phone="{{ $did->phone_number }}" data-trunk="{{ $did->source_trunk }}" style="border-bottom:1px solid var(--bordersoft);transition:background 0.3s">
-                        <td style="padding:12px 14px;font-family:var(--mono);color:var(--ink3);font-size:12px">{{ $idx + 1 }}</td>
-                        <td style="padding:12px 14px">
-                            <div style="display:flex;align-items:center;gap:8px">
-                                <span style="font-family:var(--mono);font-weight:700;color:var(--ink1);font-size:14px">{{ $did->phone_number }}</span>
-                                <button type="button" onclick="copyToClipboard('{{ $did->phone_number }}')" title="Copy DID" style="background:transparent;border:none;color:var(--ink3);cursor:pointer;font-size:11px;padding:2px 4px">
+            <tbody id="top5TableBody">
+                @forelse($top5 as $tIdx => $tDid)
+                    <tr id="top5-row-{{ $tDid->phone_number }}">
+                        <td style="text-align:center;font-family:var(--mono);font-size:11.5px;font-weight:700;color:var(--ink2)">
+                            #{{ $tIdx + 1 }}
+                        </td>
+                        <td>
+                            <div style="display:flex;align-items:center;gap:6px">
+                                <span style="font-family:var(--mono);font-weight:700;color:var(--ink1);font-size:13px">{{ $tDid->phone_number }}</span>
+                                <button type="button" class="btn-icon-copy" onclick="copyToClipboard('{{ $tDid->phone_number }}')" title="Copy DID">
                                     <i class="fa-regular fa-copy"></i>
                                 </button>
                             </div>
                         </td>
-                        <td style="padding:12px 14px">
-                            <span class="trunk-pill">
-                                <i class="fa-solid fa-server" style="color:var(--primary);font-size:10px"></i>
-                                {{ $did->source_trunk ?: 'Asterisk-Inbound' }}
+                        <td>
+                            <span style="font-family:var(--mono);font-size:11.5px;color:var(--ink2)">
+                                <i class="fa-solid fa-server" style="font-size:9.5px;color:var(--ink3);margin-right:4px"></i>
+                                {{ $tDid->source_trunk ?: 'Asterisk-Inbound' }}
                             </span>
                         </td>
-                        <td style="padding:12px 14px;text-align:center">
-                            <span class="hit-badge {{ $hitClass }}" id="hits-{{ $did->phone_number }}">
-                                <i class="fa-solid fa-bolt"></i>
-                                <span>{{ $did->hits_count }}</span> {{ Str::plural('hit', $did->hits_count) }}
+                        <td style="text-align:center">
+                            <span style="font-family:var(--mono);font-weight:700;color:var(--danger);font-size:12.5px" id="top5-hits-{{ $tDid->phone_number }}">
+                                {{ $tDid->hits_count }}
                             </span>
                         </td>
-                        <td style="padding:12px 14px">
-                            <span class="spill s-fail">
-                                <span class="sdot"></span>
-                                {{ strtoupper($did->status ?: 'REJECTED') }}
+                        <td>
+                            <span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--ink2)">
+                                <span class="status-dot status-rejected"></span>
+                                {{ ucfirst($tDid->status ?: 'rejected') }}
                             </span>
                         </td>
-                        <td style="padding:12px 14px;font-family:var(--mono);font-size:11.5px;color:var(--ink2)">
-                            {{ $did->first_hit_at ? $did->first_hit_at->format('M d, H:i:s') : '—' }}
+                        <td style="font-family:var(--mono);font-size:11px;color:var(--ink3)">
+                            {{ $tDid->first_hit_at ? $tDid->first_hit_at->format('M d, H:i:s') : '—' }}
                         </td>
-                        <td style="padding:12px 14px;font-family:var(--mono);font-size:11.5px;color:var(--ink1)">
-                            <span id="lasthit-{{ $did->phone_number }}">
-                                {{ $did->last_hit_at ? $did->last_hit_at->diffForHumans() : '—' }}
+                        <td style="font-family:var(--mono);font-size:11px;color:var(--ink1)">
+                            <span id="top5-lasthit-{{ $tDid->phone_number }}">
+                                {{ $tDid->last_hit_at ? $tDid->last_hit_at->diffForHumans() : '—' }}
                             </span>
                         </td>
-                        <td style="padding:12px 14px;text-align:right">
-                            <div style="display:inline-flex;gap:6px">
-                                <!-- Delete Button -->
-                                <form method="POST" action="{{ route('abuse-dids.destroy', $did->id) }}" style="margin:0" onsubmit="return confirm('Delete DID {{ $did->phone_number }} from abuse list?')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn-sm btn-del" title="Delete this DID">
-                                        <i class="fa-solid fa-trash"></i> Delete
-                                    </button>
-                                </form>
-                            </div>
+                        <td style="text-align:right">
+                            <form method="POST" action="{{ route('abuse-dids.destroy', $tDid->id) }}" style="margin:0" onsubmit="return confirm('Delete DID {{ $tDid->phone_number }}?')">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn-action-del" title="Delete record">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </form>
                         </td>
                     </tr>
                 @empty
-                    <tr id="emptyRow">
-                        <td colspan="8" style="text-align:center;padding:36px;color:var(--ink3);font-family:var(--mono)">
-                            <i class="fa-solid fa-shield-halved" style="font-size:28px;color:var(--primary);margin-bottom:10px;display:block"></i>
-                            No abusive DID hits detected yet. Incoming hits from Asterisk will appear here automatically!
+                    <tr id="top5EmptyRow">
+                        <td colspan="8" style="text-align:center;padding:18px;color:var(--ink3);font-family:var(--mono);font-size:12px">
+                            No abuse hits detected yet.
                         </td>
                     </tr>
                 @endforelse
@@ -276,59 +227,72 @@
     </div>
 </div>
 
-<!-- PASTE ASTERISK LOGS MODAL -->
-<div class="modal-backdrop" id="pasteLogsModal">
-    <div class="modal-box">
-        <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-            <h3 style="margin:0;font-size:16px;color:var(--ink1);display:flex;align-items:center;gap:8px">
-                <i class="fa-solid fa-terminal" style="color:var(--primary)"></i> Paste Asterisk CLI / Log Text
-            </h3>
-            <button type="button" onclick="closePasteModal()" style="background:transparent;border:none;color:var(--ink3);font-size:16px;cursor:pointer">&times;</button>
+<!-- MAIN DETECTED ABUSED NUMBERS TABLE (50 PER PAGE) -->
+<div class="slabel"><i class="fa-solid fa-table-list"></i>All Detected Abused Numbers</div>
+
+<div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;background:var(--surface)">
+        <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:13px;font-weight:700;color:var(--ink1)">Live Ingestion Feed</span>
+            <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--ok);font-family:var(--mono)" id="liveIndicator">
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--ok)"></span>
+                <span id="liveStatusText">Live (2.5s)</span>
+            </span>
         </div>
-        <div style="padding:20px">
-            <p style="font-size:12.5px;color:var(--ink2);margin-top:0;margin-bottom:12px">
-                Paste live Asterisk CLI output (e.g. <code>asterisk -rvvv</code>) or log snippets below. The system will parse and record all incoming calls and hit counts immediately.
-            </p>
-            <textarea id="rawLogsInput" rows="10" placeholder="Paste Asterisk CLI logs here..." style="width:100%;box-sizing:border-box;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--ink1);font-family:var(--mono);font-size:12px;outline:none;resize:vertical"></textarea>
-            <div id="pasteResultMsg" style="display:none;margin-top:10px;padding:10px;border-radius:6px;font-size:12.5px"></div>
-        </div>
-        <div style="padding:14px 20px;background:var(--surface2);border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
-            <button type="button" class="btn-sm btn-reset" onclick="closePasteModal()">Cancel</button>
-            <button type="button" class="btn-primary" id="btnSubmitLogs" onclick="submitCustomLogs()">
-                <i class="fa-solid fa-bolt"></i> Parse & Process Logs
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <!-- Search -->
+            <input type="text" id="tableSearch" placeholder="Filter DID / Trunk..." onkeyup="onSearchInput()" style="padding:5px 10px;border:1px solid var(--border);border-radius:var(--rs);background:var(--surface2);color:var(--ink1);font-family:var(--mono);font-size:11.5px;outline:none;width:170px">
+
+            <!-- Pause / Resume -->
+            <button type="button" class="page-btn" id="toggleLiveBtn" onclick="toggleLiveScanning()">
+                <i class="fa-solid fa-pause"></i> Pause
             </button>
+
+            <!-- Export CSV -->
+            <a href="{{ route('abuse-dids.export') }}" class="page-btn" style="text-decoration:none">
+                <i class="fa-solid fa-file-csv"></i> Export CSV
+            </a>
+
+            <!-- Clear All -->
+            <form method="POST" action="{{ route('abuse-dids.clear-all') }}" style="margin:0" onsubmit="return confirm('Clear ALL detected abuse DIDs?')">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="btn-action-del" style="padding:5px 10px;font-size:11.5px">
+                    <i class="fa-solid fa-trash-can"></i> Clear All
+                </button>
+            </form>
         </div>
     </div>
-</div>
 
-<!-- ADD SINGLE DID MODAL -->
-<div class="modal-backdrop" id="addDidModal">
-    <div class="modal-box">
-        <form method="POST" action="{{ route('abuse-dids.add') }}">
-            @csrf
-            <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-                <h3 style="margin:0;font-size:16px;color:var(--ink1);display:flex;align-items:center;gap:8px">
-                    <i class="fa-solid fa-phone" style="color:var(--primary)"></i> Add Abused DID / Register Hit
-                </h3>
-                <button type="button" onclick="closeAddDidModal()" style="background:transparent;border:none;color:var(--ink3);font-size:16px;cursor:pointer">&times;</button>
-            </div>
-            <div style="padding:20px">
-                <div style="margin-bottom:14px">
-                    <label style="display:block;font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:6px">Phone Number / DID *</label>
-                    <input type="text" name="phone_number" required placeholder="e.g. 441687500035 or 12892040018" style="width:100%;box-sizing:border-box;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--ink1);font-family:var(--mono);font-size:13px;outline:none">
-                </div>
-                <div>
-                    <label style="display:block;font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:6px">Source Trunk (Optional)</label>
-                    <input type="text" name="source_trunk" placeholder="e.g. eu3.didx.net or Asterisk-Inbound" style="width:100%;box-sizing:border-box;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--ink1);font-family:var(--mono);font-size:13px;outline:none">
-                </div>
-            </div>
-            <div style="padding:14px 20px;background:var(--surface2);border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
-                <button type="button" class="btn-sm btn-reset" onclick="closeAddDidModal()">Cancel</button>
-                <button type="submit" class="btn-primary">
-                    <i class="fa-solid fa-check"></i> Register Hit
-                </button>
-            </div>
-        </form>
+    <!-- MAIN TABLE -->
+    <div style="overflow-x:auto">
+        <table class="table-compact">
+            <thead>
+                <tr>
+                    <th style="width:45px;text-align:center">#</th>
+                    <th style="width:24%;text-align:left">DID / Phone Number</th>
+                    <th style="width:18%;text-align:left">Source Trunk</th>
+                    <th style="width:10%;text-align:center">Hits</th>
+                    <th style="width:12%;text-align:left">Status</th>
+                    <th style="width:14%;text-align:left">First Detected</th>
+                    <th style="width:14%;text-align:left">Last Hit</th>
+                    <th style="width:8%;text-align:right">Action</th>
+                </tr>
+            </thead>
+            <tbody id="abuseTableBody">
+                <!-- Rendered dynamically (50 entries per page) -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- PAGINATION BAR (50 PER PAGE) -->
+    <div style="padding:10px 18px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2);flex-wrap:wrap;gap:10px" id="paginationBar">
+        <div style="font-family:var(--mono);font-size:11.5px;color:var(--ink3)" id="paginationInfo">
+            Showing 0 to 0 of 0 detected DIDs
+        </div>
+        <div style="display:flex;align-items:center;gap:4px" id="paginationControls">
+            <!-- Rendered by JS -->
+        </div>
     </div>
 </div>
 
@@ -339,49 +303,41 @@
     var isLiveScanning = true;
     var scanInterval = null;
     var lastKnownHits = {};
+    var allDidsData = [];
+    var filteredDidsData = [];
+    var currentPage = 1;
+    var pageSize = 50;
 
-    // Initialize last known hits
+    // Initial server dataset
     @foreach($dids as $did)
         lastKnownHits['{{ $did->phone_number }}'] = {{ (int)$did->hits_count }};
+        allDidsData.push({
+            id: {{ $did->id }},
+            phone_number: '{{ $did->phone_number }}',
+            source_trunk: '{{ $did->source_trunk ?: "Asterisk-Inbound" }}',
+            hits_count: {{ (int)$did->hits_count }},
+            status: '{{ $did->status ?: "rejected" }}',
+            first_hit_at: '{{ $did->first_hit_at ? $did->first_hit_at->format("M d, H:i:s") : "—" }}',
+            last_hit_at: '{{ $did->last_hit_at ? $did->last_hit_at->format("M d, H:i:s") : "—" }}',
+            last_hit_human: '{{ $did->last_hit_at ? $did->last_hit_at->diffForHumans() : "—" }}',
+            raw_log: '{{ addslashes($did->raw_log ?: "") }}'
+        });
     @endforeach
 
-    function openPasteModal() {
-        document.getElementById('pasteLogsModal').style.display = 'flex';
-        document.getElementById('rawLogsInput').focus();
-    }
-
-    function closePasteModal() {
-        document.getElementById('pasteLogsModal').style.display = 'none';
-        document.getElementById('pasteResultMsg').style.display = 'none';
-    }
-
-    function openAddDidModal() {
-        document.getElementById('addDidModal').style.display = 'flex';
-    }
-
-    function closeAddDidModal() {
-        document.getElementById('addDidModal').style.display = 'none';
-    }
+    filteredDidsData = allDidsData.slice();
 
     function toggleLiveScanning() {
         isLiveScanning = !isLiveScanning;
         var btn = document.getElementById('toggleLiveBtn');
-        var indicator = document.getElementById('liveIndicator');
         var statusText = document.getElementById('liveStatusText');
 
         if (isLiveScanning) {
-            btn.innerHTML = '<i class="fa-solid fa-pause"></i> Pause Feed';
-            indicator.style.background = 'var(--ok-dim)';
-            indicator.style.color = 'var(--ok)';
-            indicator.style.borderColor = 'rgba(15,166,106,0.3)';
-            statusText.innerText = 'Live Scanning Active (2.5s)';
+            btn.innerHTML = '<i class="fa-solid fa-pause"></i> Pause';
+            statusText.innerText = 'Live (2.5s)';
             startPolling();
         } else {
-            btn.innerHTML = '<i class="fa-solid fa-play"></i> Resume Feed';
-            indicator.style.background = 'var(--amber-dim)';
-            indicator.style.color = 'var(--amber)';
-            indicator.style.borderColor = 'rgba(221,139,10,0.3)';
-            statusText.innerText = 'Feed Paused';
+            btn.innerHTML = '<i class="fa-solid fa-play"></i> Resume';
+            statusText.innerText = 'Paused';
         }
     }
 
@@ -403,174 +359,95 @@
         .then(function(data) {
             if (!data.success) return;
 
-            // Update Stats
+            // Update Stats Overview
             if (data.stats) {
                 document.getElementById('statTotalDids').innerText = data.stats.totalCount;
                 document.getElementById('statTotalHits').innerText = data.stats.totalHits;
                 var topText = data.stats.topDid;
                 if (data.stats.topHits > 0) {
-                    topText += ' <span style="font-size:11px;color:var(--ink2)">(' + data.stats.topHits + ' hits)</span>';
+                    topText += ' <span style="font-size:11px;color:var(--ink3);font-weight:500">(' + data.stats.topHits + ' hits)</span>';
                 }
                 document.getElementById('statTopDid').innerHTML = topText;
                 document.getElementById('statTrunks').innerText = data.stats.uniqueTrunks;
             }
 
-            // Render/Update Table Rows
+            // Update Top 5 List
+            if (data.top5) {
+                renderTop5(data.top5);
+            }
+
+            // Update Main Data
             if (data.dids) {
-                renderTableRows(data.dids);
+                allDidsData = data.dids;
+                applyFilterAndPaginate();
             }
         })
         .catch(function(err) {
-            console.warn('Abuse stream polling error:', err);
+            console.warn('Stream poll error:', err);
         });
     }
 
-    function submitCustomLogs() {
-        var rawLogs = document.getElementById('rawLogsInput').value.trim();
-        var msgDiv = document.getElementById('pasteResultMsg');
-        var btn = document.getElementById('btnSubmitLogs');
-        var csrfToken = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
-
-        if (!rawLogs) {
-            msgDiv.style.display = 'block';
-            msgDiv.style.background = 'var(--danger-dim)';
-            msgDiv.style.color = 'var(--danger)';
-            msgDiv.innerText = 'Please paste Asterisk logs before submitting.';
-            return;
-        }
-
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
-
-        fetch('{{ route("abuse-dids.parse-logs") }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': csrfToken,
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({ raw_logs: rawLogs })
-        })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-bolt"></i> Parse & Process Logs';
-
-            if (data.success) {
-                msgDiv.style.display = 'block';
-                msgDiv.style.background = 'var(--ok-dim)';
-                msgDiv.style.color = 'var(--ok)';
-                msgDiv.innerText = data.message || 'Logs parsed successfully!';
-
-                // Refresh table immediately
-                pollAbuseStream();
-
-                setTimeout(function() {
-                    closePasteModal();
-                    document.getElementById('rawLogsInput').value = '';
-                }, 1200);
-            } else {
-                msgDiv.style.display = 'block';
-                msgDiv.style.background = 'var(--danger-dim)';
-                msgDiv.style.color = 'var(--danger)';
-                msgDiv.innerText = data.message || 'Failed to parse logs.';
-            }
-        })
-        .catch(function(err) {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-bolt"></i> Parse & Process Logs';
-            msgDiv.style.display = 'block';
-            msgDiv.style.background = 'var(--danger-dim)';
-            msgDiv.style.color = 'var(--danger)';
-            msgDiv.innerText = 'Error connecting to server: ' + err.message;
-        });
-    }
-
-    function renderTableRows(dids) {
-        var tbody = document.getElementById('abuseTableBody');
-        var query = document.getElementById('tableSearch').value.toLowerCase().trim();
-
-        if (!dids || dids.length === 0) {
-            tbody.innerHTML = '<tr id="emptyRow"><td colspan="8" style="text-align:center;padding:36px;color:var(--ink3);font-family:var(--mono)"><i class="fa-solid fa-shield-halved" style="font-size:28px;color:var(--primary);margin-bottom:10px;display:block"></i>No abusive DID hits detected yet. Incoming hits from Asterisk will appear here automatically!</td></tr>';
+    function renderTop5(top5) {
+        var tbody = document.getElementById('top5TableBody');
+        if (!top5 || top5.length === 0) {
+            tbody.innerHTML = '<tr id="top5EmptyRow"><td colspan="8" style="text-align:center;padding:18px;color:var(--ink3);font-family:var(--mono);font-size:12px">No abuse hits detected yet.</td></tr>';
             return;
         }
 
         var csrfToken = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
         var html = '';
 
-        dids.forEach(function(did, idx) {
+        top5.forEach(function(did, idx) {
             var phone = String(did.phone_number);
             var hits = parseInt(did.hits_count) || 1;
-            var prevHits = lastKnownHits[phone] || 0;
-            var isNewHit = (hits > prevHits && prevHits > 0);
-            var isBrandNew = (prevHits === 0 && Object.keys(lastKnownHits).length > 0);
-
-            lastKnownHits[phone] = hits;
-
-            var hitClass = 'hit-low';
-            if (hits >= 5) hitClass = 'hit-high';
-            else if (hits >= 2) hitClass = 'hit-mid';
-
-            var flashClass = (isNewHit || isBrandNew) ? 'row-hit-flash' : '';
-            var isHidden = false;
-            if (query) {
-                var trunk = (did.source_trunk || '').toLowerCase();
-                if (phone.toLowerCase().indexOf(query) === -1 && trunk.indexOf(query) === -1) {
-                    isHidden = true;
-                }
-            }
-
-            var displayStyle = isHidden ? 'display:none;' : '';
             var deleteUrl = '/abuse-dids/' + did.id;
 
             html += `
-                <tr id="row-${escapeHtml(phone)}" data-phone="${escapeHtml(phone)}" data-trunk="${escapeHtml(did.source_trunk || '')}" class="${flashClass}" style="border-bottom:1px solid var(--bordersoft);transition:background 0.3s;${displayStyle}">
-                    <td style="padding:12px 14px;font-family:var(--mono);color:var(--ink3);font-size:12px">${idx + 1}</td>
-                    <td style="padding:12px 14px">
-                        <div style="display:flex;align-items:center;gap:8px">
-                            <span style="font-family:var(--mono);font-weight:700;color:var(--ink1);font-size:14px">${escapeHtml(phone)}</span>
-                            <button type="button" onclick="copyToClipboard('${escapeHtml(phone)}')" title="Copy DID" style="background:transparent;border:none;color:var(--ink3);cursor:pointer;font-size:11px;padding:2px 4px">
+                <tr id="top5-row-${escapeHtml(phone)}">
+                    <td style="text-align:center;font-family:var(--mono);font-size:11.5px;font-weight:700;color:var(--ink2)">
+                        #${idx + 1}
+                    </td>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:6px">
+                            <span style="font-family:var(--mono);font-weight:700;color:var(--ink1);font-size:13px">${escapeHtml(phone)}</span>
+                            <button type="button" class="btn-icon-copy" onclick="copyToClipboard('${escapeHtml(phone)}')" title="Copy DID">
                                 <i class="fa-regular fa-copy"></i>
                             </button>
                         </div>
                     </td>
-                    <td style="padding:12px 14px">
-                        <span class="trunk-pill">
-                            <i class="fa-solid fa-server" style="color:var(--primary);font-size:10px"></i>
+                    <td>
+                        <span style="font-family:var(--mono);font-size:11.5px;color:var(--ink2)">
+                            <i class="fa-solid fa-server" style="font-size:9.5px;color:var(--ink3);margin-right:4px"></i>
                             ${escapeHtml(did.source_trunk || 'Asterisk-Inbound')}
                         </span>
                     </td>
-                    <td style="padding:12px 14px;text-align:center">
-                        <span class="hit-badge ${hitClass}" id="hits-${escapeHtml(phone)}">
-                            <i class="fa-solid fa-bolt"></i>
-                            <span>${hits}</span> ${hits === 1 ? 'hit' : 'hits'}
+                    <td style="text-align:center">
+                        <span style="font-family:var(--mono);font-weight:700;color:var(--danger);font-size:12.5px" id="top5-hits-${escapeHtml(phone)}">
+                            ${hits}
                         </span>
                     </td>
-                    <td style="padding:12px 14px">
-                        <span class="spill s-fail">
-                            <span class="sdot"></span>
-                            ${escapeHtml((did.status || 'REJECTED').toUpperCase())}
+                    <td>
+                        <span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--ink2)">
+                            <span class="status-dot status-rejected"></span>
+                            ${escapeHtml(capitalize(did.status || 'rejected'))}
                         </span>
                     </td>
-                    <td style="padding:12px 14px;font-family:var(--mono);font-size:11.5px;color:var(--ink2)">
+                    <td style="font-family:var(--mono);font-size:11px;color:var(--ink3)">
                         ${escapeHtml(did.first_hit_at || '—')}
                     </td>
-                    <td style="padding:12px 14px;font-family:var(--mono);font-size:11.5px;color:var(--ink1)">
-                        <span id="lasthit-${escapeHtml(phone)}">
+                    <td style="font-family:var(--mono);font-size:11px;color:var(--ink1)">
+                        <span id="top5-lasthit-${escapeHtml(phone)}">
                             ${escapeHtml(did.last_hit_human || did.last_hit_at || 'Just now')}
                         </span>
                     </td>
-                    <td style="padding:12px 14px;text-align:right">
-                        <div style="display:inline-flex;gap:6px">
-                            <form method="POST" action="${deleteUrl}" style="margin:0" onsubmit="return confirm('Delete DID ${escapeHtml(phone)} from abuse list?')">
-                                <input type="hidden" name="_token" value="${csrfToken}">
-                                <input type="hidden" name="_method" value="DELETE">
-                                <button type="submit" class="btn-sm btn-del" title="Delete this DID">
-                                    <i class="fa-solid fa-trash"></i> Delete
-                                </button>
-                            </form>
-                        </div>
+                    <td style="text-align:right">
+                        <form method="POST" action="${deleteUrl}" style="margin:0" onsubmit="return confirm('Delete DID ${escapeHtml(phone)}?')">
+                            <input type="hidden" name="_token" value="${csrfToken}">
+                            <input type="hidden" name="_method" value="DELETE">
+                            <button type="submit" class="btn-action-del" title="Delete record">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </form>
                     </td>
                 </tr>
             `;
@@ -579,20 +456,158 @@
         tbody.innerHTML = html;
     }
 
-    function filterAbuseTable() {
-        var query = document.getElementById('tableSearch').value.toLowerCase().trim();
-        var rows = document.querySelectorAll('#abuseTableBody tr');
+    function onSearchInput() {
+        currentPage = 1;
+        applyFilterAndPaginate();
+    }
 
-        rows.forEach(function(row) {
-            if (row.id === 'emptyRow') return;
-            var phone = (row.getAttribute('data-phone') || '').toLowerCase();
-            var trunk = (row.getAttribute('data-trunk') || '').toLowerCase();
-            if (phone.indexOf(query) !== -1 || trunk.indexOf(query) !== -1) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-            }
+    function applyFilterAndPaginate() {
+        var query = document.getElementById('tableSearch').value.toLowerCase().trim();
+
+        if (!query) {
+            filteredDidsData = allDidsData.slice();
+        } else {
+            filteredDidsData = allDidsData.filter(function(item) {
+                var p = String(item.phone_number || '').toLowerCase();
+                var t = String(item.source_trunk || '').toLowerCase();
+                return p.indexOf(query) !== -1 || t.indexOf(query) !== -1;
+            });
+        }
+
+        var totalItems = filteredDidsData.length;
+        var totalPages = Math.ceil(totalItems / pageSize) || 1;
+
+        if (currentPage > totalPages) {
+            currentPage = totalPages;
+        }
+        if (currentPage < 1) {
+            currentPage = 1;
+        }
+
+        var startIdx = (currentPage - 1) * pageSize;
+        var endIdx = Math.min(startIdx + pageSize, totalItems);
+        var pageItems = filteredDidsData.slice(startIdx, endIdx);
+
+        renderMainTable(pageItems, startIdx);
+        renderPagination(totalItems, totalPages, startIdx, endIdx);
+    }
+
+    function renderMainTable(items, startIdx) {
+        var tbody = document.getElementById('abuseTableBody');
+
+        if (!items || items.length === 0) {
+            tbody.innerHTML = '<tr id="emptyRow"><td colspan="8" style="text-align:center;padding:24px;color:var(--ink3);font-family:var(--mono);font-size:12px">No matching DIDs found.</td></tr>';
+            return;
+        }
+
+        var csrfToken = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
+        var html = '';
+
+        items.forEach(function(did, idx) {
+            var phone = String(did.phone_number);
+            var hits = parseInt(did.hits_count) || 1;
+            var prevHits = lastKnownHits[phone] || 0;
+            var isNewHit = (hits > prevHits && prevHits > 0);
+            var isBrandNew = (prevHits === 0 && Object.keys(lastKnownHits).length > 0);
+
+            lastKnownHits[phone] = hits;
+
+            var flashClass = (isNewHit || isBrandNew) ? 'row-hit-flash' : '';
+            var deleteUrl = '/abuse-dids/' + did.id;
+            var itemIndex = startIdx + idx + 1;
+
+            html += `
+                <tr id="row-${escapeHtml(phone)}" class="${flashClass}">
+                    <td style="text-align:center;font-family:var(--mono);color:var(--ink3);font-size:11px">${itemIndex}</td>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:6px">
+                            <span style="font-family:var(--mono);font-weight:700;color:var(--ink1);font-size:12.5px">${escapeHtml(phone)}</span>
+                            <button type="button" class="btn-icon-copy" onclick="copyToClipboard('${escapeHtml(phone)}')" title="Copy DID">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </div>
+                    </td>
+                    <td>
+                        <span style="font-family:var(--mono);font-size:11.5px;color:var(--ink2)">
+                            <i class="fa-solid fa-server" style="font-size:9.5px;color:var(--ink3);margin-right:4px"></i>
+                            ${escapeHtml(did.source_trunk || 'Asterisk-Inbound')}
+                        </span>
+                    </td>
+                    <td style="text-align:center">
+                        <span style="font-family:var(--mono);font-weight:700;color:var(--ink1);font-size:12.5px" id="hits-${escapeHtml(phone)}">
+                            ${hits}
+                        </span>
+                    </td>
+                    <td>
+                        <span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--ink2)">
+                            <span class="status-dot status-rejected"></span>
+                            ${escapeHtml(capitalize(did.status || 'rejected'))}
+                        </span>
+                    </td>
+                    <td style="font-family:var(--mono);font-size:11px;color:var(--ink3)">
+                        ${escapeHtml(did.first_hit_at || '—')}
+                    </td>
+                    <td style="font-family:var(--mono);font-size:11px;color:var(--ink1)">
+                        <span id="lasthit-${escapeHtml(phone)}">
+                            ${escapeHtml(did.last_hit_human || did.last_hit_at || 'Just now')}
+                        </span>
+                    </td>
+                    <td style="text-align:right">
+                        <form method="POST" action="${deleteUrl}" style="margin:0" onsubmit="return confirm('Delete DID ${escapeHtml(phone)}?')">
+                            <input type="hidden" name="_token" value="${csrfToken}">
+                            <input type="hidden" name="_method" value="DELETE">
+                            <button type="submit" class="btn-action-del" title="Delete record">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            `;
         });
+
+        tbody.innerHTML = html;
+    }
+
+    function renderPagination(totalItems, totalPages, startIdx, endIdx) {
+        var infoDiv = document.getElementById('paginationInfo');
+        var controlsDiv = document.getElementById('paginationControls');
+
+        if (totalItems === 0) {
+            infoDiv.innerText = 'Showing 0 of 0 detected DIDs';
+            controlsDiv.innerHTML = '';
+            return;
+        }
+
+        infoDiv.innerText = 'Showing ' + (startIdx + 1) + '–' + endIdx + ' of ' + totalItems + ' detected DIDs (50 per page)';
+
+        var html = '';
+
+        // First & Prev
+        html += `<button type="button" class="page-btn" onclick="goToPage(1)" ${currentPage === 1 ? 'disabled' : ''} title="First Page">«</button>`;
+        html += `<button type="button" class="page-btn" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} title="Previous Page">‹</button>`;
+
+        // Page Numbers
+        var startPage = Math.max(1, currentPage - 2);
+        var endPage = Math.min(totalPages, startPage + 4);
+        if (endPage - startPage < 4) {
+            startPage = Math.max(1, endPage - 4);
+        }
+
+        for (var p = startPage; p <= endPage; p++) {
+            var activeClass = (p === currentPage) ? 'active' : '';
+            html += `<button type="button" class="page-btn ${activeClass}" onclick="goToPage(${p})">${p}</button>`;
+        }
+
+        // Next & Last
+        html += `<button type="button" class="page-btn" onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} title="Next Page">›</button>`;
+        html += `<button type="button" class="page-btn" onclick="goToPage(${totalPages})" ${currentPage === totalPages ? 'disabled' : ''} title="Last Page">»</button>`;
+
+        controlsDiv.innerHTML = html;
+    }
+
+    function goToPage(page) {
+        currentPage = page;
+        applyFilterAndPaginate();
     }
 
     function copyToClipboard(text) {
@@ -609,7 +624,6 @@
             document.execCommand('copy');
             textArea.remove();
         }
-        alert('Copied DID ' + text + ' to clipboard!');
     }
 
     function escapeHtml(text) {
@@ -623,6 +637,14 @@
         };
         return text.toString().replace(/[&<>"']/g, function(m) { return map[m]; });
     }
+
+    function capitalize(s) {
+        if (!s) return '';
+        return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+
+    // Initial render
+    applyFilterAndPaginate();
 
     // Start auto scanning on load
     startPolling();

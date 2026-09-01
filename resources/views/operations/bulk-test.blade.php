@@ -26,39 +26,39 @@
 </div>
 
 <!-- ADD DIDS SECTION -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:16px">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;align-items:stretch">
     <!-- MANUAL SINGLE DID ADDITION -->
-    <div class="card" style="margin-bottom:0">
-        <div class="card-head" style="margin-bottom:12px;padding-bottom:10px">
-            <div class="card-title"><i class="fa-solid fa-plus-circle"></i>Add Single DID Manually</div>
+    <div class="card" style="margin-bottom:0;padding:14px 18px;display:flex;flex-direction:column;justify-content:space-between">
+        <div class="card-head" style="margin-bottom:10px;padding-bottom:8px">
+            <div class="card-title" style="font-size:13px"><i class="fa-solid fa-plus-circle"></i>Add Single DID Manually</div>
             <div class="cbadge"><i class="fa-solid fa-keyboard"></i> Quick Entry</div>
         </div>
-        <form method="POST" action="{{ route('bulk-test.add-single') }}" style="display:flex;flex-direction:column;gap:10px">
+        <form method="POST" action="{{ route('bulk-test.add-single') }}" style="display:flex;flex-direction:column;gap:8px">
             @csrf
-            <div style="display:flex;gap:10px;flex-wrap:wrap">
-                <input type="text" name="phone_number" placeholder="DID Number (e.g. 44987654320)" style="flex:1;min-width:180px;padding:9px 12px;border:1px solid var(--border);border-radius:var(--rs);background:var(--surface2);color:var(--ink1);font-family:var(--mono);font-size:13px;outline:none" required>
-                <button type="submit" class="btn-primary" style="padding:9px 16px;white-space:nowrap"><i class="fa-solid fa-plus"></i> Add DID</button>
+            <div style="display:flex;gap:8px;align-items:center">
+                <input type="text" name="phone_number" placeholder="e.g. 44987654320" style="flex:1;height:32px;padding:0 10px;border:1px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--ink1);font-family:var(--mono);font-size:12px;outline:none" required>
+                <button type="submit" class="btn-primary" style="height:32px;padding:0 14px;white-space:nowrap"><i class="fa-solid fa-plus"></i> Add DID</button>
             </div>
-            <div style="font-size:11px;color:var(--ink3);font-family:var(--mono)">
-                <i class="fa-solid fa-info-circle" style="color:var(--primary);margin-right:4px"></i> Adds a single DID to the Bulk Test list (starts in PENDING status).
+            <div style="font-size:10.5px;color:var(--ink3);font-family:var(--mono)">
+                Adds DID to the Bulk Test list in Pending status.
             </div>
         </form>
     </div>
 
     <!-- BULK FILE UPLOAD -->
-    <div class="card" style="margin-bottom:0">
-        <div class="card-head" style="margin-bottom:12px;padding-bottom:10px">
-            <div class="card-title"><i class="fa-solid fa-file-csv"></i>Upload Bulk DIDs File</div>
+    <div class="card" style="margin-bottom:0;padding:14px 18px;display:flex;flex-direction:column;justify-content:space-between">
+        <div class="card-head" style="margin-bottom:10px;padding-bottom:8px">
+            <div class="card-title" style="font-size:13px"><i class="fa-solid fa-file-csv"></i>Upload Bulk DIDs File</div>
             <div class="cbadge"><i class="fa-solid fa-file-arrow-up"></i> CSV / TXT</div>
         </div>
-        <form method="POST" action="{{ route('bulk-test.upload') }}" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:10px">
+        <form method="POST" action="{{ route('bulk-test.upload') }}" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:8px">
             @csrf
-            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-                <input type="file" name="did_file" id="did_file" accept=".csv,.txt,.xlsx,.xls" style="flex:1;min-width:160px;padding:8px 10px;border:1px dashed var(--primary-line);border-radius:var(--rs);background:var(--surface2);color:var(--ink1);font-family:var(--mono);font-size:12px;outline:none;cursor:pointer">
-                <button type="submit" class="btn-primary" style="padding:9px 16px;white-space:nowrap"><i class="fa-solid fa-cloud-arrow-up"></i> Upload File</button>
+            <div style="display:flex;gap:8px;align-items:center">
+                <input type="file" name="did_file" id="did_file" accept=".csv,.txt,.xlsx,.xls" style="flex:1;height:32px;padding:4px 8px;border:1px dashed var(--border);border-radius:5px;background:var(--surface2);color:var(--ink1);font-family:var(--mono);font-size:11.5px;outline:none;cursor:pointer" required>
+                <button type="submit" class="btn-primary" style="height:32px;padding:0 14px;white-space:nowrap"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
             </div>
-            <div style="font-size:11px;color:var(--ink3);font-family:var(--mono)">
-                <i class="fa-solid fa-circle-check" style="color:var(--ok);margin-right:4px"></i> Accepts CSV or TXT file with 1 DID per line.
+            <div style="font-size:10.5px;color:var(--ink3);font-family:var(--mono)">
+                Accepts CSV or TXT file with 1 DID per line.
             </div>
         </form>
     </div>
@@ -66,16 +66,16 @@
 
 <!-- SKIPPED / DUPLICATE DIDS WARNING LIST -->
 @if(session('skipped_dids') && count(session('skipped_dids')) > 0)
-    <div style="background:var(--amber-dim);border:1px solid rgba(221,139,10,.3);border-radius:11px;padding:14px 18px;margin-bottom:18px">
-        <div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--amber);margin-bottom:8px">
+    <div style="background:var(--amber-dim);border:1px solid rgba(221,139,10,.25);border-radius:6px;padding:10px 14px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--amber);margin-bottom:6px">
             <i class="fa-solid fa-triangle-exclamation"></i>
             <span>The following DIDs already exist and were skipped:</span>
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
             @foreach(session('skipped_dids') as $skipped)
-                <div style="font-family:var(--mono);font-size:11.5px;padding:4px 10px;background:var(--surface);border:1px solid rgba(221,139,10,.3);border-radius:6px;color:var(--ink1)">
+                <div style="font-family:var(--mono);font-size:11px;padding:3px 8px;background:var(--surface);border:1px solid rgba(221,139,10,.25);border-radius:4px;color:var(--ink1)">
                     <strong>{{ $skipped['phone'] }}</strong>
-                    <span style="color:var(--amber);margin-left:4px">({{ $skipped['reason'] }})</span>
+                    <span style="color:var(--amber);margin-left:3px">({{ $skipped['reason'] }})</span>
                 </div>
             @endforeach
         </div>
@@ -85,27 +85,27 @@
 <!-- SECTION HEADER -->
 <div class="slabel"><i class="fa-solid fa-microchip"></i>Bulk Test Diagnostics (10s Interval Dialing)</div>
 
-<div class="card">
-    <div class="card-head">
-        <div class="card-title"><i class="fa-solid fa-list-check"></i>Bulk DIDs List</div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+<div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;background:var(--surface)">
+        <div class="card-title" style="font-size:13.5px"><i class="fa-solid fa-list-check"></i>Bulk DIDs List</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <!-- Start / Pause Dial Buttons -->
             <button type="button" id="startBulkBtn" class="btn-primary" onclick="startBulkTest()" @if($totalCount === 0) disabled @endif>
                 <i class="fa-solid fa-play"></i> Start Bulk Dial Test
             </button>
 
-            <button type="button" id="pauseBulkBtn" class="btn-sm btn-reset" style="display:none;padding:9px 16px;font-size:12.5px" onclick="pauseBulkTest()">
+            <button type="button" id="pauseBulkBtn" class="btn-sm btn-reset" style="display:none" onclick="pauseBulkTest()">
                 <i class="fa-solid fa-pause"></i> Pause Test
             </button>
 
             <!-- 10-Second Timer Countdown Badge -->
-            <span id="timerBadge" style="display:none;font-family:var(--mono);font-size:12px;font-weight:700;padding:7px 14px;border-radius:20px;background:var(--violet-dim);color:var(--violet);border:1px solid rgba(133,70,232,.3)">
-                <i class="fa-solid fa-stopwatch fa-spin"></i> Next call in: <span id="countdownSec">10</span>s
+            <span id="timerBadge" style="display:none;font-family:var(--mono);font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:4px;background:var(--violet-dim);color:var(--violet);border:1px solid rgba(133,70,232,.3)">
+                <i class="fa-solid fa-stopwatch fa-spin"></i> Next call: <span id="countdownSec">10</span>s
             </span>
 
             <!-- Excel Export -->
-            <a href="{{ route('bulk-test.export') }}" class="btn-primary btn-excel" style="padding:9px 16px;text-decoration:none">
-                <i class="fa-solid fa-file-excel"></i> Download Excel Report
+            <a href="{{ route('bulk-test.export') }}" class="btn-excel">
+                <i class="fa-solid fa-file-excel"></i> Export Report
             </a>
 
             <!-- Reset All -->
@@ -126,72 +126,68 @@
     </div>
 
     <!-- PROGRESS BAR -->
-    <div id="progressContainer" style="display:none;margin-bottom:18px">
-        <div style="display:flex;justify-content:space-between;font-size:11px;font-family:var(--mono);color:var(--ink2);margin-bottom:6px">
+    <div id="progressContainer" style="display:none;padding:12px 18px 0">
+        <div style="display:flex;justify-content:space-between;font-size:11px;font-family:var(--mono);color:var(--ink2);margin-bottom:4px">
             <span id="progressText"><i class="fa-solid fa-phone"></i> Dialing in progress...</span>
             <span id="progressPct">0%</span>
         </div>
-        <div style="height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;border:1px solid var(--border)">
-            <div id="progressBar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--primary),var(--violet));transition:width .4s ease"></div>
+        <div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;border:1px solid var(--border)">
+            <div id="progressBar" style="height:100%;width:0%;background:var(--primary);transition:width .4s ease"></div>
         </div>
     </div>
 
-    <!-- TABLE HEADER -->
+    <!-- TABLE -->
     <div style="overflow-x:auto">
-        <div style="display:grid;grid-template-columns:50px minmax(200px,1.5fr) minmax(130px,1fr) 180px;gap:14px;padding:0 18px 11px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);min-width:620px">
-            <div>#</div>
-            <div>DID / Source</div>
-            <div>Status</div>
-            <div style="text-align:center">Action</div>
-        </div>
-
-        <!-- TABLE ROWS -->
-        <div style="display:flex;flex-direction:column;gap:8px;min-width:620px" id="didTableBody">
-            @php $serialNumber = $totalCount; @endphp
-            @forelse($dids as $did)
-                @php
-                    $status = strtolower(trim($did->status ?? 'pending'));
-                    if (!in_array($status, ['pass', 'fail', 'dialing'])) $status = 'pending';
-                @endphp
-                <div class="did-row"
-                     style="display:grid;grid-template-columns:50px minmax(200px,1.5fr) minmax(130px,1fr) 180px;gap:14px;align-items:center;padding:13px 18px;background:var(--surface2);border:1px solid var(--border);border-left:4px solid {{ $status === 'pass' ? 'var(--ok)' : ($status === 'fail' ? 'var(--danger)' : ($status === 'dialing' ? 'var(--violet)' : 'var(--grey)')) }};border-radius:11px;transition:all .18s ease"
-                     data-id="{{ $did->id }}" data-status="{{ $status }}">
-
-                    <!-- Serial -->
-                    <div style="color:var(--ink3);font-family:var(--mono);font-size:11.5px;font-weight:700">{{ $serialNumber-- }}</div>
-
-                    <!-- DID & Source IP -->
-                    <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
-                        <div class="did-phone" style="font-family:var(--mono);font-weight:700;color:var(--ink1);letter-spacing:.2px;font-size:14px">{{ $did->phone_number }}</div>
-                        <div class="did-source" style="font-family:var(--mono);font-size:11px;color:var(--ink3)">{{ $did->source_ip ?? '—' }}</div>
-                    </div>
-
-                    <!-- Status Badge -->
-                    <div>
-                        <span class="spill s-{{ $status }}"
-                              style="background:{{ $status === 'pass' ? 'var(--ok-dim)' : ($status === 'fail' ? 'var(--danger-dim)' : ($status === 'dialing' ? 'var(--violet-dim)' : 'var(--grey-dim)')) }};color:{{ $status === 'pass' ? 'var(--ok)' : ($status === 'fail' ? 'var(--danger)' : ($status === 'dialing' ? 'var(--violet)' : 'var(--grey)')) }}">
-                            <span class="sdot" style="box-shadow:{{ $status === 'pass' ? '0 0 6px var(--ok)' : ($status === 'fail' ? '0 0 6px var(--danger)' : ($status === 'dialing' ? '0 0 6px var(--violet)' : 'none')) }}"></span>
-                            <span class="status-text">{{ strtoupper($status) }}</span>
-                        </span>
-                    </div>
-
-                    <!-- Actions: Reset & Delete only -->
-                    <div style="display:flex;justify-content:center;gap:8px">
-                        <button type="button" class="btn-sm btn-reset" onclick="resetSingleDID({{ $did->id }})">
-                            <i class="fa-solid fa-rotate-left"></i> Reset
-                        </button>
-                        <button type="button" class="btn-sm btn-del" onclick="deleteSingleDID({{ $did->id }})">
-                            <i class="fa-solid fa-trash-can"></i> Delete
-                        </button>
-                    </div>
-                </div>
-            @empty
-                <div style="padding:48px 20px;text-align:center;color:var(--ink3)">
-                    <i class="fa-solid fa-folder-open" style="font-size:36px;margin-bottom:14px;opacity:.4;display:block"></i>
-                    No DIDs added yet. Add a single DID or upload a CSV/TXT file above to get started.
-                </div>
-            @endforelse
-        </div>
+        <table class="table-compact">
+            <thead>
+                <tr>
+                    <th style="width:50px;text-align:center">#</th>
+                    <th style="width:38%;text-align:left">DID / Source IP</th>
+                    <th style="width:32%;text-align:left">Status</th>
+                    <th style="width:26%;text-align:right">Action</th>
+                </tr>
+            </thead>
+            <tbody id="didTableBody">
+                @php $serialNumber = $totalCount; @endphp
+                @forelse($dids as $did)
+                    @php
+                        $status = strtolower(trim($did->status ?? 'pending'));
+                        if (!in_array($status, ['pass', 'fail', 'dialing'])) $status = 'pending';
+                    @endphp
+                    <tr class="did-row" data-id="{{ $did->id }}" data-status="{{ $status }}">
+                        <td style="text-align:center;color:var(--ink3);font-family:var(--mono);font-size:11px">{{ $serialNumber-- }}</td>
+                        <td style="text-align:left">
+                            <div style="display:flex;flex-direction:column;gap:2px">
+                                <div class="did-phone" style="font-family:var(--mono);font-weight:700;color:var(--ink1);font-size:12.5px">{{ $did->phone_number }}</div>
+                                <div class="did-source" style="font-family:var(--mono);font-size:10.5px;color:var(--ink3)">{{ $did->source_ip ?? '—' }}</div>
+                            </div>
+                        </td>
+                        <td style="text-align:left">
+                            <span class="spill s-{{ $status }}">
+                                <span class="sdot"></span>
+                                <span class="status-text">{{ ucfirst($status) }}</span>
+                            </span>
+                        </td>
+                        <td style="text-align:right">
+                            <div style="display:inline-flex;align-items:center;justify-content:flex-end;gap:4px">
+                                <button type="button" class="btn-sm btn-reset" onclick="resetSingleDID({{ $did->id }})" title="Reset">
+                                    <i class="fa-solid fa-rotate-left"></i>
+                                </button>
+                                <button type="button" class="btn-sm btn-del" onclick="deleteSingleDID({{ $did->id }})" title="Delete">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="4" style="padding:28px;text-align:center;color:var(--ink3);font-family:var(--mono);font-size:12px">
+                            No DIDs added yet. Add a single DID or upload a CSV/TXT file above.
+                        </td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
     </div>
 </div>
 @endsection
