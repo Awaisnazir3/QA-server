@@ -3,26 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DIDX — Console Login</title>
+    <title>DIDX — Softswitch Login</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         *,*::before,*::after{box-sizing:border-box}
         :root{
-          --bg:#f3f4f9; --surface:#ffffff; --surface2:#f8f9fd; --hover:#eef0f9;
-          --border:#e6e8f2; --bordersoft:#eef0f8;
-          --ink1:#171a2c; --ink2:#5c6280; --ink3:#9499b3;
-          --primary:#6153f6; --primary-dk:#4d3fe0; --primary-dim:rgba(97,83,246,.08); --primary-line:rgba(97,83,246,.35);
-          --danger:#e0393f; --danger-dim:rgba(224,57,63,.09);
-          --ok:#0fa66a; --ok-dim:rgba(15,166,106,.09);
+          --bg:#f4f6fa; --surface:#ffffff; --surface2:#f8fafc;
+          --border:#e2e8f0; --bordersoft:#edf2f7;
+          --ink1:#0f172a; --ink2:#475569; --ink3:#94a3b8;
+          --primary:#003875; --primary-dk:#002754; --primary-dim:rgba(0,56,117,.08);
+          --accent:#ea5518; --accent-dim:rgba(234,85,24,.10);
+          --danger:#dc2626; --danger-dim:rgba(220,38,38,.09);
+          --ok:#059669; --ok-dim:rgba(5,150,105,.09);
           --disp:'Sora',sans-serif; --ui:'Inter',sans-serif; --mono:'JetBrains Mono',monospace;
-          --r:14px; --rs:9px;
+          --r:8px; --rs:5px;
         }
         body{
             font-family:var(--ui);
-            background: radial-gradient(circle at 10% 20%, rgba(97, 83, 246, 0.05) 0%, transparent 40%),
-                        radial-gradient(circle at 90% 80%, rgba(97, 83, 246, 0.05) 0%, transparent 40%),
+            background: radial-gradient(circle at 10% 20%, rgba(0, 56, 117, 0.04) 0%, transparent 40%),
+                        radial-gradient(circle at 90% 80%, rgba(234, 85, 24, 0.04) 0%, transparent 40%),
                         var(--bg);
             color:var(--ink1);
             margin:0;
@@ -34,61 +35,54 @@
         }
         .login-container{
             width:100%;
-            max-width:420px;
+            max-width:400px;
             background:var(--surface);
             border:1px solid var(--border);
             border-radius:var(--r);
-            box-shadow:0 12px 32px rgba(20,20,50,0.06);
+            box-shadow:0 8px 24px rgba(15,23,42,0.06);
             overflow:hidden;
-            position:relative;
         }
         .login-header{
-            padding:40px 30px 20px;
+            padding:34px 28px 20px;
             text-align:center;
             border-bottom:1px solid var(--bordersoft);
+            background:var(--surface);
         }
         .logo-box{
-            width:48px;
-            height:48px;
-            border-radius:14px;
-            background:linear-gradient(135deg,var(--primary),#8f6ffc);
+            margin:0 auto 12px;
             display:flex;
             align-items:center;
             justify-content:center;
-            color:#fff;
-            font-size:20px;
-            box-shadow:0 6px 16px rgba(97,83,246,.35);
-            margin:0 auto 16px;
         }
         .title{
             font-family:var(--disp);
-            font-size:20px;
+            font-size:18px;
             font-weight:700;
             color:var(--ink1);
             margin:0;
         }
         .subtitle{
-            font-size:12px;
+            font-size:11px;
             color:var(--ink3);
-            margin:6px 0 0;
+            margin:4px 0 0;
             font-family:var(--mono);
             text-transform:uppercase;
             letter-spacing:1px;
         }
         .login-body{
-            padding:30px;
+            padding:26px 28px;
         }
         .form-group{
-            margin-bottom:20px;
+            margin-bottom:18px;
             position:relative;
         }
         .form-group label{
             display:block;
-            font-size:11px;
+            font-size:10.5px;
             font-weight:700;
             text-transform:uppercase;
             color:var(--ink3);
-            margin-bottom:8px;
+            margin-bottom:6px;
             font-family:var(--mono);
             letter-spacing:0.5px;
         }
@@ -97,141 +91,119 @@
         }
         .input-wrapper i{
             position:absolute;
-            left:14px;
+            left:12px;
             top:50%;
             transform:translateY(-50%);
             color:var(--ink3);
-            font-size:14px;
-            transition:color .2s;
+            font-size:13px;
         }
         .form-input{
             width:100%;
-            padding:12px 14px 12px 42px;
+            padding:10px 12px 10px 36px;
             border:1px solid var(--border);
             border-radius:var(--rs);
             background:var(--surface2);
             color:var(--ink1);
-            font-family:var(--ui);
-            font-size:13.5px;
+            font-size:13px;
             outline:none;
-            transition:border-color .2s,box-shadow .2s,background .2s;
+            font-family:var(--ui);
+            transition:border-color .15s,box-shadow .15s;
         }
         .form-input:focus{
             border-color:var(--primary);
+            background:#fff;
             box-shadow:0 0 0 3px var(--primary-dim);
-            background:var(--surface);
-        }
-        .form-input:focus + i{
-            color:var(--primary);
-        }
-        .remember-forgot{
-            display:flex;
-            justify-content:space-between;
-            align-items:center;
-            font-size:12px;
-            margin-bottom:24px;
-        }
-        .remember-me{
-            display:flex;
-            align-items:center;
-            gap:8px;
-            color:var(--ink2);
-            cursor:pointer;
         }
         .btn-submit{
             width:100%;
-            padding:12px;
-            background:linear-gradient(135deg,var(--primary),#7a6bf9);
+            padding:11px;
+            background:var(--primary);
             color:#fff;
+            border:none;
             border-radius:var(--rs);
-            font-size:13.5px;
+            font-size:13px;
             font-weight:700;
-            display:inline-flex;
+            font-family:var(--ui);
+            cursor:pointer;
+            transition:all .15s;
+            display:flex;
             align-items:center;
             justify-content:center;
             gap:8px;
-            border:none;
-            cursor:pointer;
-            box-shadow:0 4px 12px rgba(97,83,246,.28);
-            transition:transform .12s,box-shadow .12s;
+            margin-top:10px;
         }
         .btn-submit:hover{
-            transform:translateY(-1px);
-            box-shadow:0 6px 16px rgba(97,83,246,.36);
-        }
-        .btn-submit:active{
-            transform:translateY(0);
+            background:var(--primary-dk);
         }
         .alert{
-            padding:12px 14px;
+            padding:10px 12px;
             border-radius:var(--rs);
-            font-size:12.5px;
-            font-weight:600;
-            margin-bottom:20px;
+            font-size:12px;
+            margin-bottom:18px;
+            display:flex;
+            align-items:center;
+            gap:8px;
         }
         .alert-error{
             background:var(--danger-dim);
             color:var(--danger);
-            border:1px solid rgba(224,57,63,.15);
+            border:1px solid rgba(220,38,38,.2);
         }
         .alert-success{
             background:var(--ok-dim);
             color:var(--ok);
-            border:1px solid rgba(15,166,106,.15);
+            border:1px solid rgba(5,150,105,.2);
         }
     </style>
 </head>
 <body>
     <div class="login-container">
         <div class="login-header">
-            <div class="logo-box" style="width:auto;height:auto;background:none;box-shadow:none;border-radius:0;margin:0 auto 12px">
-            <img src="{{ asset('images/didx-logo.svg') }}" alt="DIDX" style="height:44px;width:auto;display:block;margin:0 auto">
-        </div>
-            <h1 class="title">Welcome to DIDX</h1>
-            <p class="subtitle">Softswitch Control Console</p>
+            <div class="logo-box">
+                <img src="{{ asset('images/didx-logo.svg') }}" alt="DIDX" style="height:38px;width:auto;display:block">
+            </div>
+            <h1 class="title">Softswitch Console</h1>
+            <p class="subtitle">Authentication Portal</p>
         </div>
         <div class="login-body">
             @if($errors->any())
                 <div class="alert alert-error">
-                    @foreach($errors->all() as $error)
-                        <div>{{ $error }}</div>
-                    @endforeach
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <div>
+                        @foreach($errors->all() as $error)
+                            <div>{{ $error }}</div>
+                        @endforeach
+                    </div>
                 </div>
             @endif
 
             @if(session('success'))
                 <div class="alert alert-success">
-                    {{ session('success') }}
+                    <i class="fa-solid fa-circle-check"></i>
+                    <div>{{ session('success') }}</div>
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('login') }}">
+            <form action="{{ route('login.post') }}" method="POST">
                 @csrf
                 <div class="form-group">
-                    <label for="username">Username</label>
+                    <label>Username</label>
                     <div class="input-wrapper">
-                        <input type="text" id="username" name="username" class="form-input" placeholder="Enter your username" value="{{ old('username') }}" required autofocus>
-                        <i class="fa-solid fa-user"></i>
+                        <i class="fa-regular fa-user"></i>
+                        <input type="text" name="username" class="form-input" placeholder="Enter username" value="{{ old('username') }}" required autofocus autocomplete="username">
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label for="password">Password</label>
+                    <label>Password</label>
                     <div class="input-wrapper">
-                        <input type="password" id="password" name="password" class="form-input" placeholder="Enter your password" required>
                         <i class="fa-solid fa-lock"></i>
+                        <input type="password" name="password" class="form-input" placeholder="Enter password" required autocomplete="current-password">
                     </div>
-                </div>
-
-                <div class="remember-forgot">
-                    <label class="remember-me">
-                        <input type="checkbox" name="remember" id="remember" style="accent-color:var(--primary)">
-                        Remember me
-                    </label>
                 </div>
 
                 <button type="submit" class="btn-submit">
-                    Sign In <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In to Console
                 </button>
             </form>
         </div>

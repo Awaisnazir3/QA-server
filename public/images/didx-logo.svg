@@ -1,26 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 110" width="360" height="110">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 350 110" width="350" height="110">
   <defs>
     <style>
-      .didx-blue { fill: #003875; }
+      .didx-navy { fill: #003875; }
       .didx-orange { fill: #EA5518; }
     </style>
   </defs>
-  
-  <!-- 1st D -->
-  <path class="didx-blue" d="M 18,14 L 62,14 C 88,14 104,27 104,55 C 104,83 88,96 62,96 L 18,96 Z M 48,34 L 48,76 L 59,76 C 72,76 77,69 77,55 C 77,41 72,34 59,34 Z" />
-  
+  <!-- D (1) -->
+  <path class="didx-navy" d="M 18,14 L 62,14 C 88,14 104,27 104,55 C 104,83 88,96 62,96 L 18,96 Z M 48,34 L 48,76 L 59,76 C 72,76 77,69 77,55 C 77,41 72,34 59,34 Z" />
   <!-- I -->
-  <rect class="didx-blue" x="116" y="14" width="28" height="82" />
-  
-  <!-- 2nd D -->
-  <path class="didx-blue" d="M 156,14 L 200,14 C 226,14 242,27 242,55 C 242,83 226,96 200,96 L 156,96 Z M 186,34 L 186,76 L 197,76 C 210,76 215,69 215,55 C 215,41 210,34 197,34 Z" />
-  
-  <!-- X - Left Orange Chevron -->
+  <rect class="didx-navy" x="116" y="14" width="28" height="82" />
+  <!-- D (2) -->
+  <path class="didx-navy" d="M 156,14 L 200,14 C 226,14 242,27 242,55 C 242,83 226,96 200,96 L 156,96 Z M 186,34 L 186,76 L 197,76 C 210,76 215,69 215,55 C 215,41 210,34 197,34 Z" />
+  <!-- X: Orange Left Chevron -->
   <polygon class="didx-orange" points="256,14 294,14 326,55 294,96 256,96 288,55" />
-  
-  <!-- X - Blue Diagonals -->
-  <!-- Top Right arm of X -->
-  <polygon class="didx-blue" points="340,14 302,14 270,55 291,55 321,14" />
-  <!-- Bottom Right arm of X -->
-  <polygon class="didx-blue" points="291,55 270,55 302,96 340,96 321,55" />
+  <!-- X: Navy Right Diagonals -->
+  <polygon class="didx-navy" points="340,14 302,14 270,55 291,55 321,14" />
+  <polygon class="didx-navy" points="291,55 270,55 302,96 340,96 321,55" />
 </svg>
