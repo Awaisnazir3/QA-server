@@ -16,9 +16,12 @@ class CallLog extends Model
 
     protected $fillable = [
         'phone_number',
+        'caller_id',
         'status',
         'source_ip',
         'route_destination',
+        'call_datetime',
+        'duration',
         'checked_channels',
         'caller_name',
         'is_bulk',
@@ -27,13 +30,15 @@ class CallLog extends Model
 
     protected $casts = [
         'checked_channels' => 'integer',
+        'duration' => 'integer',
+        'call_datetime' => 'datetime',
         'is_bulk' => 'boolean',
     ];
 
     protected static bool $columnsVerified = false;
 
     /**
-     * Ensure route_destination column exists in database
+     * Ensure route_destination, caller_id, call_datetime, and duration columns exist in database
      */
     public static function ensureTableColumnsExist(): void
     {
@@ -41,14 +46,101 @@ class CallLog extends Model
         static::$columnsVerified = true;
 
         try {
-            if (\Illuminate\Support\Facades\Schema::hasTable('call_logs') && !\Illuminate\Support\Facades\Schema::hasColumn('call_logs', 'route_destination')) {
+            if (\Illuminate\Support\Facades\Schema::hasTable('call_logs')) {
                 \Illuminate\Support\Facades\Schema::table('call_logs', function (\Illuminate\Database\Schema\Blueprint $table) {
-                    $table->string('route_destination', 50)->nullable()->after('source_ip');
+                    if (!\Illuminate\Support\Facades\Schema::hasColumn('call_logs', 'route_destination')) {
+                        $table->string('route_destination', 50)->nullable()->after('source_ip');
+                    }
+                    if (!\Illuminate\Support\Facades\Schema::hasColumn('call_logs', 'caller_id')) {
+                        $table->string('caller_id', 50)->nullable()->after('phone_number');
+                    }
+                    if (!\Illuminate\Support\Facades\Schema::hasColumn('call_logs', 'call_datetime')) {
+                        $table->dateTime('call_datetime')->nullable()->after('route_destination');
+                    }
+                    if (!\Illuminate\Support\Facades\Schema::hasColumn('call_logs', 'duration')) {
+                        $table->integer('duration')->nullable()->after('call_datetime');
+                    }
                 });
             }
         } catch (\Throwable $e) {
             // Ignore if already exists or permission denied
         }
+    }
+
+    /**
+     * Smart Accessor: Caller ID with fallbacks to CDRs
+     */
+    public function getDisplayCallerIdAttribute(): string
+    {
+        if (!empty($this->attributes['caller_id'])) {
+            return $this->attributes['caller_id'];
+        }
+        if (!empty($this->attributes['caller_name']) && $this->attributes['caller_name'] !== 'channel_test_active') {
+            return $this->attributes['caller_name'];
+        }
+        try {
+            $cleanPhone = preg_replace('/[^0-9]/', '', $this->phone_number);
+            $latestCdr = Cdr::where('destination', $this->phone_number)
+                ->orWhere('destination', $cleanPhone)
+                ->latest('start_time')
+                ->first();
+            if ($latestCdr && !empty($latestCdr->caller_id)) {
+                return $latestCdr->caller_id;
+            }
+            $latestTest = $this->channelTestCdrs()->latest()->first();
+            if ($latestTest && !empty($latestTest->caller_id)) {
+                return $latestTest->caller_id;
+            }
+        } catch (\Throwable $e) {}
+        return '—';
+    }
+
+    /**
+     * Smart Accessor: Call Date/Time formatted
+     */
+    public function getDisplayDateTimeAttribute(): string
+    {
+        if (!empty($this->attributes['call_datetime'])) {
+            return \Carbon\Carbon::parse($this->attributes['call_datetime'])->format('Y-m-d H:i:s');
+        }
+        try {
+            $cleanPhone = preg_replace('/[^0-9]/', '', $this->phone_number);
+            $latestCdr = Cdr::where('destination', $this->phone_number)
+                ->orWhere('destination', $cleanPhone)
+                ->latest('start_time')
+                ->first();
+            if ($latestCdr && !empty($latestCdr->start_time)) {
+                return $latestCdr->start_time->format('Y-m-d H:i:s');
+            }
+            $latestTest = $this->channelTestCdrs()->latest()->first();
+            if ($latestTest && !empty($latestTest->created_at)) {
+                return $latestTest->created_at->format('Y-m-d H:i:s');
+            }
+        } catch (\Throwable $e) {}
+        return '—';
+    }
+
+    /**
+     * Smart Accessor: Duration formatted as MM:SS
+     */
+    public function getDisplayDurationAttribute(): string
+    {
+        if (isset($this->attributes['duration']) && $this->attributes['duration'] !== null && $this->attributes['duration'] !== '') {
+            $sec = (int)$this->attributes['duration'];
+            return sprintf('%02d:%02d', floor($sec / 60), $sec % 60);
+        }
+        try {
+            $cleanPhone = preg_replace('/[^0-9]/', '', $this->phone_number);
+            $latestCdr = Cdr::where('destination', $this->phone_number)
+                ->orWhere('destination', $cleanPhone)
+                ->latest('start_time')
+                ->first();
+            if ($latestCdr && isset($latestCdr->duration)) {
+                $sec = (int)$latestCdr->duration;
+                return sprintf('%02d:%02d', floor($sec / 60), $sec % 60);
+            }
+        } catch (\Throwable $e) {}
+        return '—';
     }
 
     /**

@@ -538,9 +538,12 @@ class DidRouteController extends Controller
             $didPayload = [
                 'id' => $log->id,
                 'phone_number' => $log->phone_number,
+                'caller_id' => $log->display_caller_id,
                 'status' => $statusClean,
                 'source_ip' => $displayIp,
                 'route_destination' => $routeExt,
+                'call_datetime' => $log->display_date_time,
+                'duration' => $log->display_duration,
                 'checked_channels' => $log->checked_channels,
             ];
 

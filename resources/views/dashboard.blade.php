@@ -129,24 +129,30 @@
 
             <!-- HIGH-DENSITY DATA GRID (~34px ROW HEIGHT, STICKY HEADER) -->
             <div class="flex-1 min-h-0 overflow-y-auto overflow-x-auto relative bg-[var(--surface)]" id="didGridContainer">
-                <table class="w-full table-fixed text-xs border-collapse text-left select-text" id="didGridTable">
+                <table class="w-full min-w-[1050px] table-fixed text-xs border-collapse text-left select-text" id="didGridTable">
                     <colgroup>
-                        <col class="w-[4%]">
-                        <col class="w-[19%]">
-                        <col class="w-[18%]">
+                        <col class="w-[3%]">
+                        <col class="w-[13%]">
+                        <col class="w-[11%]">
+                        <col class="w-[12%]">
+                        <col class="w-[7%]">
                         <col class="w-[10%]">
                         <col class="w-[13%]">
-                        <col class="w-[16%]">
-                        <col class="w-[8%]">
-                        <col class="w-[12%]">
+                        <col class="w-[7%]">
+                        <col class="w-[11%]">
+                        <col class="w-[4%]">
+                        <col class="w-[9%]">
                     </colgroup>
                     <thead class="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 shadow-xs">
                         <tr class="h-8 text-[11px] font-mono font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                             <th class="py-2 px-3 text-center border-r border-slate-200/70 dark:border-slate-700/70">#</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">DID / Phone Number</th>
+                            <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Caller ID</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Source IP / Host</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70 text-center">Status</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70 text-center">Route Destination</th>
+                            <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70 text-center">Date / Time</th>
+                            <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70 text-center">Duration</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70 text-center">Channel Diagnostic</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70 text-center">Channels</th>
                             <th class="py-2 px-3 text-right">Action Controls</th>
@@ -161,6 +167,9 @@
                                 $channelsDetected = $log->checked_channels !== null ? (int)$log->checked_channels : '—';
                                 $sourceIp = ($log->source_ip === '7788') ? 'eu3.didx.net' : ($log->source_ip ?? '—');
                                 $routeExt = ($status === 'route') ? ($log->route_destination ?? '7788') : ($log->route_destination ?? null);
+                                $callerId = $log->display_caller_id;
+                                $callDatetime = $log->display_date_time;
+                                $duration = $log->display_duration;
                             @endphp
                             <tr data-id="{{ $log->id }}"
                                 data-status="{{ $status }}"
@@ -187,6 +196,13 @@
                                     </div>
                                 </td>
 
+                                <!-- Caller ID -->
+                                <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 truncate caller-id-cell">
+                                    <span class="font-mono tracking-tight text-xs text-[var(--ink2)] caller-id-text truncate block" title="{{ $callerId }}">
+                                        {{ $callerId }}
+                                    </span>
+                                </td>
+
                                 <!-- Source IP Address -->
                                 <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 truncate">
                                     <span class="font-mono tracking-tight font-semibold text-xs text-[var(--ink2)] source-ip-text truncate block">
@@ -210,6 +226,24 @@
                                         </span>
                                     @else
                                         <span class="text-slate-400 font-mono text-xs route-ext-empty">—</span>
+                                    @endif
+                                </td>
+
+                                <!-- Date / Time -->
+                                <td class="py-2 px-3 text-center border-r border-slate-100 dark:border-slate-800/60 truncate datetime-cell">
+                                    <span class="font-mono tracking-tight text-[11px] text-[var(--ink2)] datetime-text truncate block" title="{{ $callDatetime }}">
+                                        {{ $callDatetime }}
+                                    </span>
+                                </td>
+
+                                <!-- Duration -->
+                                <td class="py-2 px-3 text-center border-r border-slate-100 dark:border-slate-800/60 duration-cell">
+                                    @if($duration !== '—')
+                                        <span class="inline-block px-1.5 py-0.2 rounded font-mono text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-[var(--ink1)] duration-text">
+                                            {{ $duration }}
+                                        </span>
+                                    @else
+                                        <span class="text-slate-400 font-mono text-xs duration-text">—</span>
                                     @endif
                                 </td>
 
@@ -283,7 +317,7 @@
                             </tr>
                         @empty
                             <tr id="emptyGridRow">
-                                <td colspan="8" class="py-12 text-center text-xs font-mono text-[var(--ink3)]">
+                                <td colspan="11" class="py-12 text-center text-xs font-mono text-[var(--ink3)]">
                                     <i class="fa-solid fa-database text-lg mb-2 block opacity-40"></i>
                                     No DID numbers provisioned yet. Use the action bar above to deploy one.
                                 </td>
@@ -702,9 +736,10 @@ function filterDidGrid(){
     rows.forEach(function(row){
         var did = (row.getAttribute('data-did') || '').toLowerCase();
         var ip = (row.getAttribute('data-ip') || '').toLowerCase();
+        var cid = (row.querySelector('.caller-id-text') ? row.querySelector('.caller-id-text').textContent : '').toLowerCase();
         var rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
 
-        var matchesSearch = !searchVal || did.includes(searchVal) || ip.includes(searchVal);
+        var matchesSearch = !searchVal || did.includes(searchVal) || ip.includes(searchVal) || cid.includes(searchVal);
         var matchesStatus = (statusFilter === 'all') || (rowStatus === statusFilter);
 
         if(matchesSearch && matchesStatus){
@@ -1311,6 +1346,36 @@ function updateDIDStatuses() {
                         extCell.innerHTML = '<span class="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 route-ext-badge" title="Routed to ' + rExt + '"><i class="fa-solid fa-arrow-right-to-bracket text-[9px]"></i> ' + rExt + '</span>';
                     } else {
                         extCell.innerHTML = '<span class="text-slate-400 font-mono text-xs route-ext-empty">—</span>';
+                    }
+                }
+
+                // Update Caller ID
+                if (didData.caller_id) {
+                    var cidElem = row.querySelector('.caller-id-text');
+                    if (cidElem && cidElem.textContent.trim() !== didData.caller_id) {
+                        cidElem.textContent = didData.caller_id;
+                        cidElem.title = didData.caller_id;
+                    }
+                }
+
+                // Update Date / Time
+                if (didData.call_datetime) {
+                    var dtElem = row.querySelector('.datetime-text');
+                    if (dtElem && dtElem.textContent.trim() !== didData.call_datetime) {
+                        dtElem.textContent = didData.call_datetime;
+                        dtElem.title = didData.call_datetime;
+                    }
+                }
+
+                // Update Duration
+                if (didData.duration !== undefined && didData.duration !== null) {
+                    var durElem = row.querySelector('.duration-cell');
+                    if (durElem) {
+                        if (didData.duration !== '—') {
+                            durElem.innerHTML = '<span class="inline-block px-1.5 py-0.2 rounded font-mono text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-[var(--ink1)] duration-text">' + didData.duration + '</span>';
+                        } else {
+                            durElem.innerHTML = '<span class="text-slate-400 font-mono text-xs duration-text">—</span>';
+                        }
                     }
                 }
 
