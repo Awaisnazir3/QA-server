@@ -102,36 +102,46 @@ class DidRouteController extends Controller
     }
 
     /**
-     * Update DID status to route and save chosen carrier / trunk destination
+     * Route associated DID to 7788 (only if status of DID is pass)
      */
     public function markAsRoute(Request $request, CallLog $callLog)
     {
-        $customHost = trim($request->input('custom_host', ''));
-        $sipPeer = trim($request->input('sip_peer', ''));
+        $currentStatus = strtolower(trim($callLog->status ?? 'pending'));
 
-        $updates = ['status' => 'route'];
+        // Only allowed if status of DID is pass
+        if ($currentStatus !== 'pass' && $currentStatus !== 'route') {
+            $msg = "DID {$callLog->phone_number} cannot be routed. Status must be PASS to route on 7788 (Current status: " . strtoupper($currentStatus) . ").";
 
-        if (!empty($customHost)) {
-            $sipPort = trim($request->input('sip_port', '5060')) ?: '5060';
-            $updates['source_ip'] = $customHost . ($sipPort !== '5060' ? ":{$sipPort}" : '');
-        } elseif (!empty($sipPeer)) {
-            $updates['source_ip'] = $sipPeer;
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $msg,
+                ], 422);
+            }
+
+            return redirect()->route('dashboard')->with('error', $msg);
         }
 
-        $callLog->update($updates);
+        // Route associated DID on 7788
+        $targetRoute = '7788';
+
+        $callLog->update([
+            'status' => 'route',
+            'source_ip' => $targetRoute,
+        ]);
 
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json([
                 'success' => true,
                 'status' => 'route',
-                'source_ip' => $callLog->source_ip ?: '—',
+                'source_ip' => $targetRoute,
                 'phone_number' => $callLog->phone_number,
-                'message' => "DID {$callLog->phone_number} routed to " . ($callLog->source_ip ?: 'selected trunk') . ".",
+                'message' => "DID {$callLog->phone_number} successfully routed on {$targetRoute}.",
             ]);
         }
 
         return redirect()->route('dashboard')
-            ->with('success', "DID {$callLog->phone_number} routed successfully to " . ($callLog->source_ip ?: 'selected destination') . ".");
+            ->with('success', "DID {$callLog->phone_number} successfully routed on {$targetRoute}.");
     }
 
     /**

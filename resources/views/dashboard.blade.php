@@ -229,12 +229,28 @@
                                 <!-- Action Controls -->
                                 <td class="py-2 px-3 text-right">
                                     <div class="inline-flex items-center justify-end gap-1">
-                                        <button type="button"
-                                                class="btn-dense btn-dense-ok"
-                                                onclick="openRouteDrawer({{ $log->id }}, '{{ $log->phone_number }}', '{{ $status }}', '{{ $sourceIp }}', '{{ $channelsDetected }}')"
-                                                title="Open Route Configuration Drawer">
-                                            <i class="fa-solid fa-route text-[10px]"></i> <span>Route</span>
-                                        </button>
+                                        @if($status === 'pass')
+                                            <button type="button"
+                                                    class="btn-dense btn-dense-ok btn-route-action"
+                                                    onclick="handleRouteDID({{ $log->id }}, '{{ $log->phone_number }}')"
+                                                    title="Route associated DID to 7788">
+                                                <i class="fa-solid fa-route text-[10px]"></i> <span>Route</span>
+                                            </button>
+                                        @elseif($status === 'route')
+                                            <button type="button"
+                                                    class="btn-dense btn-dense-ghost text-amber-600 dark:text-amber-400 border-amber-500/30 btn-route-action"
+                                                    onclick="handleRouteDID({{ $log->id }}, '{{ $log->phone_number }}')"
+                                                    title="Re-route associated DID to 7788">
+                                                <i class="fa-solid fa-check text-[10px]"></i> <span>Routed</span>
+                                            </button>
+                                        @else
+                                            <button type="button"
+                                                    class="btn-dense btn-dense-ghost text-slate-400 opacity-60 cursor-not-allowed btn-route-action"
+                                                    onclick="handleRouteDID({{ $log->id }}, '{{ $log->phone_number }}')"
+                                                    title="DID status must be PASS to route on 7788">
+                                                <i class="fa-solid fa-lock text-[10px]"></i> <span>Route</span>
+                                            </button>
+                                        @endif
                                         <form method="POST" action="{{ route('dashboard.reset', $log->id) }}" class="m-0 inline">
                                             @csrf
                                             <button type="submit" class="btn-dense btn-dense-ghost px-1.5" title="Reset status & IP">
@@ -742,7 +758,90 @@ function filterDidGrid(){
     });
 })();
 
-// 3. Route Slide-Over Side Drawer
+// 3. Direct Route DID on 7788
+function handleRouteDID(didId, phoneNumber) {
+    var row = document.querySelector('#didGridTbody tr.did-row[data-id="' + didId + '"]');
+    var liveStatus = (row ? row.getAttribute('data-status') : '').toLowerCase().trim();
+    var liveDid = (row ? row.getAttribute('data-did') : '') || phoneNumber;
+
+    // Strict validation: Only allow routing if status of DID is pass (or already route)
+    if (liveStatus !== 'pass' && liveStatus !== 'route') {
+        showErrModal('DID ' + liveDid + ' cannot be routed. Status must be PASS to route on 7788. Current status: ' + (liveStatus ? liveStatus.toUpperCase() : 'PENDING') + '.');
+        return false;
+    }
+
+    showConfirmModal('Route DID on 7788?', 'Route associated DID ' + liveDid + ' to 7788 now?', function() {
+        var btn = row ? row.querySelector('.btn-route-action') : null;
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-[9.5px]"></i> <span>Routing...</span>';
+        }
+
+        fetch("{{ url('/dashboard') }}/" + didId + "/mark-route", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                sip_peer: '7788'
+            })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.success) {
+                if (row) {
+                    row.setAttribute('data-status', 'route');
+                    row.setAttribute('data-ip', '7788');
+                    row.style.borderLeftColor = 'var(--accent)';
+
+                    var spill = row.querySelector('.spill');
+                    var span = row.querySelector('.status-text');
+                    if (spill && span) {
+                        spill.className = 'spill s-route';
+                        span.textContent = 'Route';
+                    }
+
+                    var ipElem = row.querySelector('.source-ip-text');
+                    if (ipElem) ipElem.textContent = '7788';
+
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.className = 'btn-dense btn-dense-ghost text-amber-600 dark:text-amber-400 border-amber-500/30 btn-route-action';
+                        btn.innerHTML = '<i class="fa-solid fa-check text-[10px]"></i> <span>Routed</span>';
+                        btn.title = 'Re-route associated DID to 7788';
+                    }
+                }
+
+                logAmiEvent('route', 'ROUTE_7788', 'DID ' + liveDid + ' successfully routed on 7788');
+                filterDidGrid();
+            } else {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-route text-[10px]"></i> <span>Route</span>';
+                }
+                showErrModal(data.message || 'Failed to route DID on 7788.');
+            }
+        })
+        .catch(function(err) {
+            // Fallback: submit standard form if AJAX fails
+            var fallbackForm = document.createElement('form');
+            fallbackForm.method = 'POST';
+            fallbackForm.action = "{{ url('/dashboard') }}/" + didId + "/mark-route";
+            var csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = '_token';
+            csrfInput.value = '{{ csrf_token() }}';
+            fallbackForm.appendChild(csrfInput);
+            document.body.appendChild(fallbackForm);
+            fallbackForm.submit();
+        });
+    });
+}
+
+// 4. Route Slide-Over Side Drawer
 function openRouteDrawer(didId, phoneNumber, fallbackStatus, fallbackIp, fallbackChannels){
     var drawer = document.getElementById('routeDrawer');
     var backdrop = document.getElementById('routeDrawerBackdrop');
@@ -1147,6 +1246,24 @@ function updateDIDStatuses() {
                                 '<button type="button" class="btn-dense btn-dense-ghost cursor-not-allowed text-slate-400" onclick="showErrModal(\'DID status must be PASS to run channel test. Current: ' + newStatus.toUpperCase() + '\')"><i class="fa-solid fa-lock text-[9.5px]"></i> <span>Test</span></button>' +
                                 '<input type="number" class="w-9 h-[22px] px-1 text-center font-mono text-[11px] border border-[var(--border)] rounded bg-[var(--surface2)] text-slate-400" value="5" disabled>' +
                                 '</div>';
+                        }
+                    }
+
+                    // Route button state update
+                    var routeBtn = row.querySelector('.btn-route-action');
+                    if (routeBtn) {
+                        if (newStatus === 'pass') {
+                            routeBtn.className = 'btn-dense btn-dense-ok btn-route-action';
+                            routeBtn.title = 'Route associated DID to 7788';
+                            routeBtn.innerHTML = '<i class="fa-solid fa-route text-[10px]"></i> <span>Route</span>';
+                        } else if (newStatus === 'route') {
+                            routeBtn.className = 'btn-dense btn-dense-ghost text-amber-600 dark:text-amber-400 border-amber-500/30 btn-route-action';
+                            routeBtn.title = 'Re-route associated DID to 7788';
+                            routeBtn.innerHTML = '<i class="fa-solid fa-check text-[10px]"></i> <span>Routed</span>';
+                        } else {
+                            routeBtn.className = 'btn-dense btn-dense-ghost text-slate-400 opacity-60 cursor-not-allowed btn-route-action';
+                            routeBtn.title = 'DID status must be PASS to route on 7788';
+                            routeBtn.innerHTML = '<i class="fa-solid fa-lock text-[10px]"></i> <span>Route</span>';
                         }
                     }
 
