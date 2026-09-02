@@ -18,6 +18,7 @@ class CallLog extends Model
         'phone_number',
         'status',
         'source_ip',
+        'route_destination',
         'checked_channels',
         'caller_name',
         'is_bulk',
@@ -28,6 +29,27 @@ class CallLog extends Model
         'checked_channels' => 'integer',
         'is_bulk' => 'boolean',
     ];
+
+    protected static bool $columnsVerified = false;
+
+    /**
+     * Ensure route_destination column exists in database
+     */
+    public static function ensureTableColumnsExist(): void
+    {
+        if (static::$columnsVerified) return;
+        static::$columnsVerified = true;
+
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('call_logs') && !\Illuminate\Support\Facades\Schema::hasColumn('call_logs', 'route_destination')) {
+                \Illuminate\Support\Facades\Schema::table('call_logs', function (\Illuminate\Database\Schema\Blueprint $table) {
+                    $table->string('route_destination', 50)->nullable()->after('source_ip');
+                });
+            }
+        } catch (\Throwable $e) {
+            // Ignore if already exists or permission denied
+        }
+    }
 
     /**
      * Consolidate duplicate phone numbers in call_logs table

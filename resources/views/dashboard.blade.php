@@ -132,10 +132,11 @@
                 <table class="w-full table-fixed text-xs border-collapse text-left select-text" id="didGridTable">
                     <colgroup>
                         <col class="w-[4%]">
-                        <col class="w-[23%]">
-                        <col class="w-[23%]">
-                        <col class="w-[12%]">
+                        <col class="w-[19%]">
                         <col class="w-[18%]">
+                        <col class="w-[10%]">
+                        <col class="w-[13%]">
+                        <col class="w-[16%]">
                         <col class="w-[8%]">
                         <col class="w-[12%]">
                     </colgroup>
@@ -145,6 +146,7 @@
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">DID / Phone Number</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Source IP / Host</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70 text-center">Status</th>
+                            <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70 text-center">Route Destination</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70 text-center">Channel Diagnostic</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70 text-center">Channels</th>
                             <th class="py-2 px-3 text-right">Action Controls</th>
@@ -157,7 +159,8 @@
                                 $status = !empty($log->status) ? strtolower(trim($log->status)) : 'pending';
                                 if (!in_array($status, ['pass', 'fail', 'route'])) $status = 'pending';
                                 $channelsDetected = $log->checked_channels !== null ? (int)$log->checked_channels : '—';
-                                $sourceIp = $log->source_ip ?? '—';
+                                $sourceIp = ($log->source_ip === '7788') ? 'eu3.didx.net' : ($log->source_ip ?? '—');
+                                $routeExt = ($status === 'route') ? ($log->route_destination ?? '7788') : ($log->route_destination ?? null);
                             @endphp
                             <tr data-id="{{ $log->id }}"
                                 data-status="{{ $status }}"
@@ -197,6 +200,17 @@
                                         <span class="sdot"></span>
                                         <span class="status-text">{{ ucfirst($status) }}</span>
                                     </span>
+                                </td>
+
+                                <!-- Route Destination Extension -->
+                                <td class="py-2 px-3 text-center border-r border-slate-100 dark:border-slate-800/60 route-ext-cell">
+                                    @if($status === 'route' || !empty($routeExt))
+                                        <span class="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 route-ext-badge" title="Routed to {{ $routeExt ?: '7788' }}">
+                                            <i class="fa-solid fa-arrow-right-to-bracket text-[9px]"></i> {{ $routeExt ?: '7788' }}
+                                        </span>
+                                    @else
+                                        <span class="text-slate-400 font-mono text-xs route-ext-empty">—</span>
+                                    @endif
                                 </td>
 
                                 <!-- Channel Diagnostic Test Form -->
@@ -269,7 +283,7 @@
                             </tr>
                         @empty
                             <tr id="emptyGridRow">
-                                <td colspan="7" class="py-12 text-center text-xs font-mono text-[var(--ink3)]">
+                                <td colspan="8" class="py-12 text-center text-xs font-mono text-[var(--ink3)]">
                                     <i class="fa-solid fa-database text-lg mb-2 block opacity-40"></i>
                                     No DID numbers provisioned yet. Use the action bar above to deploy one.
                                 </td>
@@ -795,7 +809,6 @@ function handleRouteDID(didId, phoneNumber) {
         if (data.success) {
             if (row) {
                 row.setAttribute('data-status', 'route');
-                row.setAttribute('data-ip', '7788');
                 row.style.borderLeftColor = 'var(--accent)';
 
                 var spill = row.querySelector('.spill');
@@ -805,8 +818,12 @@ function handleRouteDID(didId, phoneNumber) {
                     span.textContent = 'Route';
                 }
 
-                var ipElem = row.querySelector('.source-ip-text');
-                if (ipElem) ipElem.textContent = '7788';
+                // Leave Source IP unchanged as requested (e.g. eu3.didx.net stays intact)
+                // Update the dedicated Route Destination Extension cell
+                var extCell = row.querySelector('.route-ext-cell');
+                if (extCell) {
+                    extCell.innerHTML = '<span class="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 route-ext-badge" title="Routed to 7788"><i class="fa-solid fa-arrow-right-to-bracket text-[9px]"></i> 7788</span>';
+                }
 
                 if (btn) {
                     btn.disabled = false;
@@ -816,7 +833,7 @@ function handleRouteDID(didId, phoneNumber) {
                 }
             }
 
-            logAmiEvent('route', 'ROUTE_7788', 'DID ' + liveDid + ' successfully routed on 7788');
+            logAmiEvent('route', 'ROUTE_7788', 'DID ' + liveDid + ' successfully routed to 7788 extension');
             filterDidGrid();
 
             // Immediately poll statuses so state remains synchronized
@@ -1286,8 +1303,19 @@ function updateDIDStatuses() {
                     logAmiEvent('call', 'STATUS_CHANGE', 'DID ' + row.getAttribute('data-did') + ' transitioned to ' + newStatus.toUpperCase());
                 }
 
-                // Update Source IP
-                if(newSourceIp){
+                // Update Route Extension Destination cell
+                var extCell = row.querySelector('.route-ext-cell');
+                if (extCell) {
+                    var rExt = (newStatus === 'route') ? ((didData && didData.route_destination) ? didData.route_destination : '7788') : ((didData && didData.route_destination) ? didData.route_destination : null);
+                    if (rExt) {
+                        extCell.innerHTML = '<span class="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 route-ext-badge" title="Routed to ' + rExt + '"><i class="fa-solid fa-arrow-right-to-bracket text-[9px]"></i> ' + rExt + '</span>';
+                    } else {
+                        extCell.innerHTML = '<span class="text-slate-400 font-mono text-xs route-ext-empty">—</span>';
+                    }
+                }
+
+                // Update Source IP (ignore '7788' so original carrier host like eu3.didx.net stays intact)
+                if(newSourceIp && newSourceIp !== '7788'){
                     var ipElem = row.querySelector('.source-ip-text');
                     if(ipElem && ipElem.textContent.trim() !== newSourceIp){
                         ipElem.textContent = newSourceIp;

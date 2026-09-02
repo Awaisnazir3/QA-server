@@ -19,6 +19,9 @@ class DidRouteController extends Controller
      */
     public function index()
     {
+        // Ensure route_destination column exists
+        CallLog::ensureTableColumnsExist();
+
         // Auto-consolidate any legacy or concurrent duplicate DIDs
         CallLog::deduplicate();
 
@@ -122,26 +125,38 @@ class DidRouteController extends Controller
             return redirect()->route('dashboard')->with('error', $msg);
         }
 
-        // Route associated DID on 7788
+        // Route associated DID on 7788 extension
         $targetRoute = '7788';
 
-        $callLog->update([
+        CallLog::ensureTableColumnsExist();
+
+        $updates = [
             'status' => 'route',
-            'source_ip' => $targetRoute,
-        ]);
+            'route_destination' => $targetRoute,
+        ];
+
+        // Ensure source_ip remains unchanged. If previously set to '7788', restore to clean trunk host
+        if ($callLog->source_ip === '7788') {
+            $updates['source_ip'] = 'eu3.didx.net';
+        }
+
+        $callLog->update($updates);
+
+        $currentSourceIp = !empty($updates['source_ip']) ? $updates['source_ip'] : ($callLog->source_ip ?: '—');
 
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json([
                 'success' => true,
                 'status' => 'route',
-                'source_ip' => $targetRoute,
+                'source_ip' => $currentSourceIp,
+                'route_destination' => $targetRoute,
                 'phone_number' => $callLog->phone_number,
-                'message' => "DID {$callLog->phone_number} successfully routed on {$targetRoute}.",
+                'message' => "DID {$callLog->phone_number} routed to {$targetRoute} extension.",
             ]);
         }
 
         return redirect()->route('dashboard')
-            ->with('success', "DID {$callLog->phone_number} successfully routed on {$targetRoute}.");
+            ->with('success', "DID {$callLog->phone_number} successfully routed to {$targetRoute} extension.");
     }
 
     /**
@@ -152,6 +167,7 @@ class DidRouteController extends Controller
         $callLog->update([
             'status' => 'pending',
             'source_ip' => null,
+            'route_destination' => null,
             'checked_channels' => null,
         ]);
 
@@ -507,11 +523,24 @@ class DidRouteController extends Controller
                 $statusClean = 'pending';
             }
 
+            $displayIp = $log->source_ip ?: '—';
+            if ($displayIp === '7788') {
+                $displayIp = 'eu3.didx.net';
+            }
+
+            $routeExt = null;
+            if ($statusClean === 'route') {
+                $routeExt = !empty($log->route_destination) ? $log->route_destination : '7788';
+            } elseif (!empty($log->route_destination)) {
+                $routeExt = $log->route_destination;
+            }
+
             $didPayload = [
                 'id' => $log->id,
                 'phone_number' => $log->phone_number,
                 'status' => $statusClean,
-                'source_ip' => $log->source_ip ?: '—',
+                'source_ip' => $displayIp,
+                'route_destination' => $routeExt,
                 'checked_channels' => $log->checked_channels,
             ];
 
