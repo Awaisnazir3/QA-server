@@ -5,207 +5,184 @@
 @section('page-crumb', 'DIDX / Operations / Dialer')
 
 @section('content')
-<div class="slabel"><i class="fa-solid fa-phone"></i>Softphone Control Panel</div>
+<div class="flex flex-col flex-1 h-full min-h-0 overflow-hidden">
+    <!-- 1. TOP TELEMETRY STRIP -->
+    <div class="h-9 border-b border-[var(--border)] bg-[var(--surface2)] px-3 flex items-center justify-between flex-shrink-0">
+        <div class="flex items-center gap-2">
+            <!-- Extension Status Pill -->
+            <div class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] font-mono text-xs" id="softphoneStatusBadge">
+                <span class="w-2 h-2 rounded-full bg-slate-400" id="softphoneStatusDot"></span>
+                <span class="text-[var(--ink3)] text-[10px]">EXT 63311:</span>
+                <span class="font-bold text-[var(--ink1)]" id="softphoneStatusText">Checking...</span>
+            </div>
 
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
-    <!-- LEFT: Softphone Status & Settings -->
-    <div class="card" style="margin-bottom:0;padding:16px 18px">
-        <div class="card-head" style="margin-bottom:12px;padding-bottom:10px">
-            <div class="card-title" style="font-size:13px"><i class="fa-solid fa-wifi"></i>Softphone Status</div>
+            <!-- SIP Server Config Snippet -->
+            <div class="hidden md:flex items-center gap-2 px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] font-mono text-[10.5px] text-[var(--ink2)]">
+                <span><strong class="text-[var(--ink1)]">Host:</strong> 165.227.88.28:5060</span>
+                <span class="text-slate-300 dark:text-slate-700">|</span>
+                <span><strong class="text-[var(--ink1)]">Proto:</strong> PJSIP UDP</span>
+            </div>
         </div>
 
-        <div style="display:flex;flex-direction:column;gap:12px">
-            <!-- Extension 63311 Status Badge -->
-            <div style="padding:10px 14px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-                <div>
-                    <div style="font-weight:700;font-size:13px;color:var(--ink1);font-family:var(--mono)">Extension 63311</div>
-                    <div style="font-size:11px;color:var(--ink3);margin-top:2px">SIP: Zoiper / MicroSIP / Linphone</div>
-                </div>
-                <div id="softphoneStatusBadge" style="padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:6px;background:var(--grey-dim);color:var(--grey)">
-                    <span id="softphoneStatusDot" style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>
-                    <span id="softphoneStatusText">Checking...</span>
-                </div>
-            </div>
-
-            <!-- Configuration Info -->
-            <div style="padding:10px 12px;background:var(--surface2);border-radius:6px;border-left:3px solid var(--primary);font-size:11.5px;color:var(--ink2)">
-                <div style="font-weight:700;color:var(--ink1);margin-bottom:6px">Configuration:</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-family:var(--mono);font-size:11px">
-                    <div>Server: <span style="color:var(--ink1);font-weight:600">165.227.88.28</span></div>
-                    <div>Port: <span style="color:var(--ink1);font-weight:600">5060 UDP</span></div>
-                    <div>Ext: <span style="color:var(--ink1);font-weight:600">63311</span></div>
-                    <div>Pass: <span style="color:var(--ink1);font-weight:600">f63311</span></div>
-                </div>
-            </div>
-
-            <!-- Auto-Refresh Toggle -->
-            <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
-                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;font-size:11.5px;color:var(--ink2)">
-                    <input type="checkbox" id="autoRefresh" checked style="cursor:pointer;width:14px;height:14px">
-                    <span>Auto-refresh (3s)</span>
-                </label>
-                <button type="button" class="btn-sm btn-reset" onclick="checkSoftphoneStatus()">
-                    <i class="fa-solid fa-sync"></i> Refresh
-                </button>
-            </div>
+        <div class="flex items-center gap-2 font-mono text-xs text-[var(--ink3)]">
+            <label class="flex items-center gap-1.5 cursor-pointer select-none">
+                <input type="checkbox" id="autoRefresh" checked class="accent-amber-500 w-3 h-3">
+                <span class="text-[11px]">Auto-Sync (3s)</span>
+            </label>
+            <button type="button" class="btn-dense btn-dense-ghost text-[10px] px-1.5" onclick="checkSoftphoneStatus()" title="Refresh Extension Status">
+                <i class="fa-solid fa-rotate text-[9.5px]"></i>
+            </button>
         </div>
     </div>
 
-    <!-- RIGHT: Dial Pad & Caller ID -->
-    <div class="card" style="margin-bottom:0;padding:16px 18px">
-        <div class="card-head" style="margin-bottom:12px;padding-bottom:10px">
-            <div class="card-title" style="font-size:13px"><i class="fa-solid fa-keypad"></i>Dial Pad</div>
-        </div>
+    <!-- 2. DUAL-PANE DESKTOP WORKSPACE (DIALER LEFT, HISTORY RIGHT) -->
+    <div class="flex-1 flex min-h-0 overflow-hidden">
+        <!-- LEFT: COMPACT KEYPAD PANEL (300px fixed width) -->
+        <div class="w-[300px] border-r border-[var(--border)] bg-[var(--surface)] flex flex-col min-h-0 overflow-y-auto p-3 space-y-3 flex-shrink-0">
+            <!-- Active Call Banner (Displays during live call) -->
+            <div id="callStatusContainer" class="hidden p-2.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 font-mono text-xs space-y-1 animate-pulse">
+                <div class="flex items-center justify-between text-emerald-600 font-bold">
+                    <span class="flex items-center gap-1"><i class="fa-solid fa-phone-volume"></i> CALL IN PROGRESS</span>
+                    <span id="callDuration" class="text-emerald-700 font-extrabold">00:00</span>
+                </div>
+                <div class="text-[10.5px] text-[var(--ink2)] truncate">From: <span id="callFrom" class="font-bold text-[var(--ink1)]"></span></div>
+                <div class="text-[10.5px] text-[var(--ink2)] truncate">To: <span id="callTo" class="font-bold text-[var(--ink1)]"></span></div>
+            </div>
 
-        <div style="display:flex;flex-direction:column;gap:10px">
-            <!-- Caller ID (Outbound Route) Selection -->
+            <!-- Outbound Caller ID Selector -->
             <div>
-                <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);margin-bottom:4px">Caller ID</label>
-                <select id="callerId" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:12px;background:var(--surface2);color:var(--ink1);font-family:var(--mono);outline:none">
-                    <option value="">-- Select Outbound Route --</option>
+                <label class="block text-[10px] font-mono uppercase font-bold text-[var(--ink3)] mb-1">Outbound Caller ID (Route)</label>
+                <select id="callerId" class="w-full h-8 px-2 bg-[var(--surface2)] border border-[var(--border)] rounded text-xs font-mono text-[var(--ink1)] focus:outline-none focus:border-amber-500">
+                    <option value="">-- Select Outbound DID --</option>
                     @foreach($routes as $route)
                         <option value="{{ $route->phone_number }}">{{ $route->phone_number }} ({{ $route->status }})</option>
                     @endforeach
                 </select>
             </div>
 
-            <!-- Dial Number Input -->
+            <!-- Destination Number Input -->
             <div>
-                <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);margin-bottom:4px">Destination Number</label>
-                <input type="tel" id="calleeNumber" placeholder="Enter phone number..." style="width:100%;padding:7px 11px;border:1px solid var(--border);border-radius:5px;font-size:13px;background:var(--surface2);color:var(--ink1);font-family:var(--mono);letter-spacing:0.5px;outline:none" value="">
+                <label class="block text-[10px] font-mono uppercase font-bold text-[var(--ink3)] mb-1">Target Number</label>
+                <div class="relative flex items-center">
+                    <input type="tel" id="calleeNumber" placeholder="Enter phone number..."
+                           class="w-full h-8 pl-2 pr-8 bg-[var(--surface2)] border border-[var(--border)] rounded text-xs font-mono font-bold text-[var(--ink1)] tracking-wider focus:outline-none focus:border-amber-500">
+                    <button type="button" onclick="backspace()" class="absolute right-2 text-slate-400 hover:text-[var(--ink1)] border-none bg-transparent cursor-pointer" title="Backspace">
+                        <i class="fa-solid fa-delete-left text-xs"></i>
+                    </button>
+                </div>
             </div>
 
-            <!-- Dialer Keypad -->
-            <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:6px">
+            <!-- Keypad Grid -->
+            <div class="grid grid-cols-3 gap-1.5 font-mono">
                 @foreach(['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'] as $digit)
-                    <button type="button" class="dialer-btn" data-digit="{{ $digit }}" style="padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--ink1);font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--mono)">
+                    <button type="button" class="dialer-btn h-9 rounded bg-[var(--surface2)] hover:bg-amber-500 hover:text-white border border-[var(--border)] font-bold text-sm text-[var(--ink1)] transition-colors cursor-pointer select-none" data-digit="{{ $digit }}">
                         {{ $digit }}
                     </button>
                 @endforeach
             </div>
 
-            <!-- Call Control Buttons -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <button id="callBtn" type="button" class="btn-primary" style="padding:8px;font-size:12px;background:var(--ok);border-color:var(--ok)" onclick="makeCall()">
-                    <i class="fa-solid fa-phone"></i> Call
+            <!-- Call & Hangup Actions -->
+            <div class="grid grid-cols-2 gap-2 pt-1">
+                <button id="callBtn" type="button" onclick="makeCall()" class="btn-dense btn-dense-ok h-9 text-xs font-bold w-full">
+                    <i class="fa-solid fa-phone mr-1"></i> Call
                 </button>
-                <button id="hangupBtn" type="button" class="btn-hangup" style="padding:8px;font-size:12px;opacity:.5;pointer-events:none;justify-content:center" onclick="hangupCall()">
-                    <i class="fa-solid fa-phone-slash"></i> Hangup
+                <button id="hangupBtn" type="button" onclick="hangupCall()" class="btn-dense btn-dense-del h-9 text-xs font-bold w-full opacity-50 pointer-events-none">
+                    <i class="fa-solid fa-phone-slash mr-1"></i> Hangup
                 </button>
             </div>
 
-            <!-- Backspace/Clear -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <button type="button" class="page-btn" onclick="backspace()" style="justify-content:center">
-                    <i class="fa-solid fa-delete-left"></i> Backspace
+            <div class="flex items-center justify-between text-[11px] font-mono pt-1">
+                <button type="button" onclick="clearInput()" class="text-slate-400 hover:text-red-500 border-none bg-transparent cursor-pointer">
+                    <i class="fa-solid fa-eraser mr-1"></i>Clear Display
                 </button>
-                <button type="button" class="page-btn" onclick="clearInput()" style="justify-content:center">
-                    Clear
-                </button>
+                <span class="text-[10px] text-[var(--ink3)]">SIP: 63311</span>
+            </div>
+        </div>
+
+        <!-- RIGHT: CALL HISTORY HIGH-DENSITY DATA GRID -->
+        <div class="flex-1 flex flex-col min-h-0 overflow-hidden bg-[var(--surface)]">
+            <!-- Filter Bar -->
+            <div class="h-10 px-3 py-1.5 bg-[var(--surface2)] border-b border-[var(--border)] flex items-center justify-between flex-shrink-0">
+                <div class="flex items-center gap-1.5">
+                    <i class="fa-solid fa-history text-amber-500 text-xs"></i>
+                    <span class="font-disp font-bold text-xs text-[var(--ink1)]">Dialer Call History</span>
+                </div>
+
+                <!-- Direction Filter Pills -->
+                <div class="flex items-center bg-[var(--surface)] p-0.5 rounded border border-[var(--border)]">
+                    <button type="button" class="filter-btn active px-2 py-0.5 rounded text-[10px] font-mono font-bold" data-filter="all" onclick="filterHistory('all')">ALL</button>
+                    <button type="button" class="filter-btn px-2 py-0.5 rounded text-[10px] font-mono font-bold text-amber-600" data-filter="outbound" onclick="filterHistory('outbound')">OUTBOUND</button>
+                    <button type="button" class="filter-btn px-2 py-0.5 rounded text-[10px] font-mono font-bold text-emerald-600" data-filter="inbound" onclick="filterHistory('inbound')">INBOUND</button>
+                </div>
+            </div>
+
+            <!-- History Table -->
+            <div class="flex-1 min-h-0 overflow-y-auto overflow-x-auto relative">
+                <table class="w-full table-fixed text-xs border-collapse text-left select-text font-mono">
+                    <colgroup>
+                        <col class="w-[22%]">
+                        <col class="w-[22%]">
+                        <col class="w-[12%]">
+                        <col class="w-[14%]">
+                        <col class="w-[10%]">
+                        <col class="w-[12%]">
+                        <col class="w-[8%]">
+                    </colgroup>
+                    <thead class="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 shadow-xs">
+                        <tr class="h-8 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Caller ID</th>
+                            <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Destination</th>
+                            <th class="py-2 px-3 text-center border-r border-slate-200/70 dark:border-slate-700/70">Direction</th>
+                            <th class="py-2 px-3 text-center border-r border-slate-200/70 dark:border-slate-700/70">Status</th>
+                            <th class="py-2 px-3 text-center border-r border-slate-200/70 dark:border-slate-700/70">Duration</th>
+                            <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Timestamp</th>
+                            <th class="py-2 px-3 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800" id="historyBody">
+                        <tr>
+                            <td colspan="7" class="py-12 text-center text-xs font-mono text-[var(--ink3)]">
+                                Loading call history...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 </div>
-
-<!-- Call Status & Info -->
-<div id="callStatusContainer" style="display:none;margin-bottom:16px">
-    <div class="card" style="padding:14px 18px">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
-            <div>
-                <div style="font-size:10.5px;color:var(--ink3);text-transform:uppercase;font-weight:600;margin-bottom:3px">From</div>
-                <div style="font-size:13px;font-weight:700;color:var(--ink1);font-family:var(--mono)" id="callFrom">—</div>
-            </div>
-            <div>
-                <div style="font-size:10.5px;color:var(--ink3);text-transform:uppercase;font-weight:600;margin-bottom:3px">To</div>
-                <div style="font-size:13px;font-weight:700;color:var(--ink1);font-family:var(--mono)" id="callTo">—</div>
-            </div>
-            <div>
-                <div style="font-size:10.5px;color:var(--ink3);text-transform:uppercase;font-weight:600;margin-bottom:3px">Duration</div>
-                <div style="font-size:13px;font-weight:700;color:var(--ok);font-family:var(--mono)" id="callDuration">00:00</div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Call History -->
-<div class="card" style="padding:0;overflow:hidden">
-    <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface);flex-wrap:wrap;gap:10px">
-        <div class="card-title" style="font-size:13.5px"><i class="fa-solid fa-history"></i>Call History</div>
-        <div style="display:flex;gap:4px">
-            <button class="page-btn active" data-filter="all" onclick="filterHistory('all')">All</button>
-            <button class="page-btn" data-filter="outbound" onclick="filterHistory('outbound')">Outbound</button>
-            <button class="page-btn" data-filter="inbound" onclick="filterHistory('inbound')">Inbound</button>
-        </div>
-    </div>
-
-    <div style="overflow-x:auto">
-        <table class="table-compact">
-            <thead>
-                <tr>
-                    <th>From</th>
-                    <th>To</th>
-                    <th>Direction</th>
-                    <th>Status</th>
-                    <th style="text-align:center">Duration</th>
-                    <th>Time</th>
-                    <th style="text-align:right">Action</th>
-                </tr>
-            </thead>
-            <tbody id="historyBody">
-                <tr>
-                    <td colspan="7" style="text-align:center;padding:24px;color:var(--ink3);font-family:var(--mono);font-size:12px">Loading call history...</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<style>
-    .dialer-btn {
-        transition: all 0.12s;
-    }
-    .dialer-btn:hover {
-        background: var(--primary) !important;
-        color: #fff !important;
-        border-color: var(--primary) !important;
-    }
-</style>
 
 <script>
 let currentCallId = null;
 let callDurationInterval = null;
 let autoRefreshInterval = null;
 
-// Dialer pad - add digit to input
+// Add digit to input
 document.querySelectorAll('.dialer-btn').forEach(btn => {
     btn.addEventListener('click', function() {
-        const digit = this.dataset.digit;
-        document.getElementById('calleeNumber').value += digit;
+        document.getElementById('calleeNumber').value += this.dataset.digit;
     });
 });
 
-// Backspace
 function backspace() {
     const input = document.getElementById('calleeNumber');
     input.value = input.value.slice(0, -1);
 }
 
-// Clear
 function clearInput() {
     document.getElementById('calleeNumber').value = '';
 }
 
-// Make call
 function makeCall() {
     const callerId = document.getElementById('callerId').value;
     const calleeNumber = document.getElementById('calleeNumber').value;
 
     if (!callerId) {
-        alert('Please select a caller ID (outbound route)');
+        alert('Please select an outbound Caller ID route');
         return;
     }
 
-    if (!calleeNumber || calleeNumber.length < 7) {
+    if (!calleeNumber || calleeNumber.length < 3) {
         alert('Please enter a valid phone number');
         return;
     }
@@ -231,19 +208,15 @@ function makeCall() {
         if (data.success) {
             currentCallId = data.call_id;
             
-            // Show call status
-            document.getElementById('callStatusContainer').style.display = 'block';
+            document.getElementById('callStatusContainer').classList.remove('hidden');
             document.getElementById('callFrom').textContent = callerId;
             document.getElementById('callTo').textContent = calleeNumber;
             
-            // Enable hangup
-            document.getElementById('hangupBtn').style.opacity = '1';
-            document.getElementById('hangupBtn').style.pointerEvents = 'auto';
+            const hangupBtn = document.getElementById('hangupBtn');
+            hangupBtn.style.opacity = '1';
+            hangupBtn.style.pointerEvents = 'auto';
             
-            // Start duration timer
             startDurationTimer();
-            
-            // Refresh history after a short delay
             setTimeout(() => refreshHistory(), 500);
         } else {
             alert('Error: ' + (data.message || 'Failed to make call'));
@@ -251,7 +224,7 @@ function makeCall() {
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Connection error');
+        alert('Call dispatch failed');
     })
     .finally(() => {
         callBtn.disabled = false;
@@ -259,13 +232,7 @@ function makeCall() {
     });
 }
 
-// Hangup call
 function hangupCall() {
-    if (!currentCallId) {
-        alert('No active call');
-        return;
-    }
-
     const hangupBtn = document.getElementById('hangupBtn');
     hangupBtn.disabled = true;
     hangupBtn.style.opacity = '0.5';
@@ -278,56 +245,40 @@ function hangupCall() {
         },
         body: JSON.stringify({
             call_id: currentCallId,
+            extension: '63311'
         })
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Reset UI
-            document.getElementById('callStatusContainer').style.display = 'none';
-            document.getElementById('calleeNumber').value = '';
-            currentCallId = null;
+            if (callDurationInterval) clearInterval(callDurationInterval);
+            document.getElementById('callStatusContainer').classList.add('hidden');
             
-            // Stop timer
-            if (callDurationInterval) {
-                clearInterval(callDurationInterval);
-            }
-            
-            // Disable hangup
             hangupBtn.style.opacity = '0.5';
             hangupBtn.style.pointerEvents = 'none';
-            
-            // Refresh history
+            currentCallId = null;
             setTimeout(() => refreshHistory(), 500);
         }
     })
     .catch(error => console.error('Error:', error))
     .finally(() => {
         hangupBtn.disabled = false;
-        hangupBtn.style.opacity = '1';
     });
 }
 
-// Start duration timer
 function startDurationTimer() {
     let seconds = 0;
     if (callDurationInterval) clearInterval(callDurationInterval);
     
     callDurationInterval = setInterval(() => {
         seconds++;
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
+        const minutes = Math.floor(seconds / 60);
         const secs = seconds % 60;
-        
-        const formatted = (hours > 0 ? hours + ':' : '') + 
-                         (minutes.toString().padStart(2, '0')) + ':' +
-                         (secs.toString().padStart(2, '0'));
-        
+        const formatted = (minutes.toString().padStart(2, '0')) + ':' + (secs.toString().padStart(2, '0'));
         document.getElementById('callDuration').textContent = formatted;
     }, 1000);
 }
 
-// Check softphone (63311) status
 function checkSoftphoneStatus() {
     fetch('./dialer/extension-status?extension=63311', { cache: 'no-store' })
         .then(response => response.json())
@@ -339,46 +290,42 @@ function checkSoftphoneStatus() {
         .catch(error => console.error('Error:', error));
 }
 
-// Update status badge
 function updateStatusBadge(status) {
-    const badge = document.getElementById('softphoneStatusBadge');
     const dot = document.getElementById('softphoneStatusDot');
     const text = document.getElementById('softphoneStatusText');
+    if (!dot || !text) return;
     
     if (status === 'online') {
         dot.style.background = 'var(--ok)';
         dot.style.boxShadow = '0 0 8px var(--ok)';
         text.textContent = 'Online';
-        badge.style.background = 'var(--ok-dim)';
-        badge.style.color = 'var(--ok)';
+        text.style.color = 'var(--ok)';
     } else if (status === 'offline') {
         dot.style.background = 'var(--danger)';
-        dot.style.boxShadow = '0 0 8px var(--danger)';
+        dot.style.boxShadow = 'none';
         text.textContent = 'Offline';
-        badge.style.background = 'var(--danger-dim)';
-        badge.style.color = 'var(--danger)';
+        text.style.color = 'var(--danger)';
     } else {
         dot.style.background = '#999';
-        dot.style.boxShadow = '0 0 8px #999';
+        dot.style.boxShadow = 'none';
         text.textContent = 'Checking...';
-        badge.style.background = 'var(--grey-dim)';
-        badge.style.color = '#999';
+        text.style.color = 'var(--ink3)';
     }
 }
 
-// Filter history
 function filterHistory(direction) {
     document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.remove('active');
+        btn.classList.remove('active', 'bg-[var(--surface2)]');
     });
-    event.target.classList.add('active');
+    const target = document.querySelector(`.filter-btn[data-filter="${direction}"]`);
+    if (target) target.classList.add('active', 'bg-[var(--surface2)]');
     
     refreshHistory();
 }
 
-// Refresh call history
 function refreshHistory() {
-    const filter = document.querySelector('.filter-btn.active').dataset.filter;
+    const activeFilterBtn = document.querySelector('.filter-btn.active');
+    const filter = activeFilterBtn ? activeFilterBtn.dataset.filter : 'all';
     
     const url = new URL('./dialer/history', window.location);
     if (filter !== 'all') {
@@ -395,72 +342,57 @@ function refreshHistory() {
         .catch(error => console.error('Error:', error));
 }
 
-// Render history table
 function renderHistory(history) {
     const tbody = document.getElementById('historyBody');
+    if (!tbody) return;
     
-    if (history.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--ink3)">No call history yet</td></tr>';
+    if (!history || history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="py-12 text-center text-xs font-mono text-[var(--ink3)]">No call history recorded yet</td></tr>';
         return;
     }
     
     tbody.innerHTML = history.map(call => {
-        const statusColor = call.status === 'completed' ? 'var(--ok)' : 
-                           call.status === 'failed' ? 'var(--danger)' : 'var(--amber)';
-        const statusBg = call.status === 'completed' ? 'var(--ok-dim)' : 
-                        call.status === 'failed' ? 'var(--danger-dim)' : 'var(--amber-dim)';
+        const isComp = call.status === 'completed';
+        const isFail = call.status === 'failed';
+        const statusClass = isComp ? 's-pass' : (isFail ? 's-fail' : 's-route');
         
         const durationSecs = call.duration || 0;
-        const hours = Math.floor(durationSecs / 3600);
-        const minutes = Math.floor((durationSecs % 3600) / 60);
+        const minutes = Math.floor(durationSecs / 60);
         const secs = durationSecs % 60;
-        const durationStr = (hours > 0 ? hours + ':' : '') + 
-                           (minutes.toString().padStart(2, '0')) + ':' +
-                           (secs.toString().padStart(2, '0'));
+        const durationStr = (minutes.toString().padStart(2, '0')) + ':' + (secs.toString().padStart(2, '0'));
         
-        return `<tr style="border-bottom:1px solid var(--bordersoft)">
-            <td style="padding:12px 14px;font-family:var(--mono);color:var(--ink1)">${call.caller_id}</td>
-            <td style="padding:12px 14px;font-family:var(--mono);color:var(--ink2)">${call.callee_number}</td>
-            <td style="padding:12px 14px">
+        return `<tr class="h-[34px] border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/75 dark:hover:bg-slate-800/50 transition-colors">
+            <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 font-mono tracking-tight font-semibold text-[var(--ink1)] truncate">${call.caller_id}</td>
+            <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 font-mono tracking-tight text-[var(--ink2)] truncate">${call.callee_number}</td>
+            <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 text-center">
                 ${call.direction === 'outbound' ? 
-                    '<span style="display:inline-flex;align-items:center;gap:4px;color:var(--amber)"><i class="fa-solid fa-arrow-up-right"></i>Outbound</span>' :
-                    '<span style="display:inline-flex;align-items:center;gap:4px;color:var(--ok)"><i class="fa-solid fa-arrow-down-left"></i>Inbound</span>'}
+                    '<span class="text-amber-600 font-semibold"><i class="fa-solid fa-arrow-up-right mr-1 text-[10px]"></i>Out</span>' :
+                    '<span class="text-emerald-600 font-semibold"><i class="fa-solid fa-arrow-down-left mr-1 text-[10px]"></i>In</span>'}
             </td>
-            <td style="padding:12px 14px">
-                <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;background:${statusBg};color:${statusColor}">
-                    <span style="width:6px;height:6px;border-radius:50%;background:${statusColor}"></span>
-                    ${call.status}
-                </span>
+            <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 text-center">
+                <span class="spill ${statusClass}"><span class="sdot"></span>${call.status}</span>
             </td>
-            <td style="padding:12px 14px;font-family:var(--mono);color:var(--ink2)">${durationStr}</td>
-            <td style="padding:12px 14px;font-family:var(--mono);color:var(--ink3);font-size:11px">${call.start_time || '—'}</td>
-            <td style="padding:12px 14px;text-align:center">
-                <button class="btn-sm" onclick="redialCall('${call.caller_id}', '${call.callee_number}')" style="padding:6px 10px;background:var(--primary);color:#fff;border:none;border-radius:4px;font-size:11px;cursor:pointer">
-                    <i class="fa-solid fa-redo"></i>Redial
+            <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 text-center text-[var(--ink2)]">${durationStr}</td>
+            <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 text-[var(--ink3)] text-[11px]">${call.start_time || '—'}</td>
+            <td class="py-2 px-3 text-right">
+                <button type="button" class="btn-dense btn-dense-ghost text-[10px]" onclick="redialCall('${call.caller_id}', '${call.callee_number}')" title="Redial">
+                    <i class="fa-solid fa-redo text-[9.5px]"></i> Redial
                 </button>
             </td>
         </tr>`;
     }).join('');
 }
 
-// Redial a call
 function redialCall(callerId, calleeNumber) {
     document.getElementById('calleeNumber').value = calleeNumber;
     document.getElementById('callerId').value = callerId;
 }
 
-// Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-    // Load initial history
     refreshHistory();
-    
-    // Auto-refresh history every 5 seconds
     setInterval(refreshHistory, 5000);
-    
-    // Check softphone status immediately
     checkSoftphoneStatus();
     
-    // Auto-refresh softphone status every 3 seconds if enabled
     autoRefreshInterval = setInterval(() => {
         if (document.getElementById('autoRefresh').checked) {
             checkSoftphoneStatus();
@@ -468,16 +400,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 3000);
 });
 
-// Handle auto-refresh toggle
 document.getElementById('autoRefresh').addEventListener('change', function() {
     if (this.checked) {
-        autoRefreshInterval = setInterval(() => {
-            checkSoftphoneStatus();
-        }, 3000);
+        autoRefreshInterval = setInterval(checkSoftphoneStatus, 3000);
     } else if (autoRefreshInterval) {
         clearInterval(autoRefreshInterval);
     }
 });
 </script>
-
 @endsection

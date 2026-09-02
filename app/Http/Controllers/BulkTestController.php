@@ -24,6 +24,7 @@ class BulkTestController extends Controller
 
         return view('operations.bulk-test', [
             'dids' => $dids,
+            'bulkDids' => $dids,
             'totalCount' => $totalCount,
             'passCount' => $passCount,
             'failCount' => $failCount,

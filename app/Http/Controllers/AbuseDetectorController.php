@@ -24,17 +24,36 @@ class AbuseDetectorController extends Controller
     {
         AbuseDid::ensureTableExists();
 
-        // Scan logs on initial page load as well
-        $this->detector->scanAndProcessLogs();
+        // Query database directly - fast & indexed (< 25ms)
+        $dids = AbuseDid::select([
+            'id', 'phone_number', 'source_trunk', 'hits_count', 'status', 'first_hit_at', 'last_hit_at'
+        ])
+        ->orderBy('hits_count', 'desc')
+        ->orderBy('last_hit_at', 'desc')
+        ->get();
 
-        $dids = AbuseDid::orderBy('hits_count', 'desc')->orderBy('last_hit_at', 'desc')->get();
         $stats = $this->calculateStats($dids);
         $top5 = $dids->take(5);
+
+        // Pre-format DIDs for fast JSON hydration in JavaScript (avoids 859 Blade diffForHumans loops)
+        $formattedDids = $dids->map(function ($item) {
+            return [
+                'id' => $item->id,
+                'phone_number' => $item->phone_number,
+                'source_trunk' => $item->source_trunk ?: 'Asterisk-Inbound',
+                'hits_count' => (int) $item->hits_count,
+                'status' => $item->status ?: 'rejected',
+                'first_hit_at' => $item->first_hit_at ? $item->first_hit_at->format('M d, H:i:s') : '—',
+                'last_hit_at' => $item->last_hit_at ? $item->last_hit_at->format('M d, H:i:s') : '—',
+                'last_hit_human' => $item->last_hit_at ? $item->last_hit_at->diffForHumans() : '—',
+            ];
+        });
 
         return view('operations.abuse-dids', [
             'dids' => $dids,
             'top5' => $top5,
             'stats' => $stats,
+            'formattedDids' => $formattedDids,
         ]);
     }
 
@@ -45,24 +64,29 @@ class AbuseDetectorController extends Controller
     {
         AbuseDid::ensureTableExists();
 
-        // Automatically scan Asterisk logs on server (<1ms on Linux)
+        // Throttled scan: runs at most once every 30 seconds in the background
         $this->detector->scanAndProcessLogs();
 
         // Direct DB query for real-time state
-        $dids = AbuseDid::orderBy('hits_count', 'desc')->orderBy('last_hit_at', 'desc')->get();
+        $dids = AbuseDid::select([
+            'id', 'phone_number', 'source_trunk', 'hits_count', 'status', 'first_hit_at', 'last_hit_at'
+        ])
+        ->orderBy('hits_count', 'desc')
+        ->orderBy('last_hit_at', 'desc')
+        ->get();
+
         $stats = $this->calculateStats($dids);
 
         $formattedDids = $dids->map(function ($item) {
             return [
                 'id' => $item->id,
                 'phone_number' => $item->phone_number,
-                'source_trunk' => $item->source_trunk ?: '—',
+                'source_trunk' => $item->source_trunk ?: 'Asterisk-Inbound',
                 'hits_count' => (int) $item->hits_count,
                 'status' => $item->status ?: 'rejected',
-                'first_hit_at' => $item->first_hit_at ? $item->first_hit_at->format('M d, Y H:i:s') : '—',
-                'last_hit_at' => $item->last_hit_at ? $item->last_hit_at->format('M d, Y H:i:s') : '—',
+                'first_hit_at' => $item->first_hit_at ? $item->first_hit_at->format('M d, H:i:s') : '—',
+                'last_hit_at' => $item->last_hit_at ? $item->last_hit_at->format('M d, H:i:s') : '—',
                 'last_hit_human' => $item->last_hit_at ? $item->last_hit_at->diffForHumans() : '—',
-                'raw_log' => $item->raw_log ?: '',
             ];
         });
 

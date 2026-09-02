@@ -1,118 +1,202 @@
 @extends('layouts.app')
 
 @section('title', 'DIDX — Console Settings')
-@section('page-title', 'Console System Settings & Admin Management')
+@section('page-title', 'System Settings & Console Operators')
 @section('page-crumb', 'DIDX / System / Settings')
 
 @section('content')
-<div class="slabel"><i class="fa-solid fa-gear"></i>Configuration</div>
+<div class="flex flex-col flex-1 h-full min-h-0 overflow-hidden">
+    <!-- 1. TOP TELEMETRY STRIP -->
+    <div class="h-9 border-b border-[var(--border)] bg-[var(--surface2)] px-3 flex items-center justify-between flex-shrink-0">
+        <div class="flex items-center gap-2">
+            <div class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] font-mono text-xs">
+                <i class="fa-solid fa-users text-[10px] text-indigo-500"></i>
+                <span class="text-[var(--ink3)] text-[10px]">OPERATORS:</span>
+                <span class="font-bold text-[var(--ink1)]">{{ $users->count() }}</span>
+            </div>
+            <div class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 font-mono text-xs text-blue-600 dark:text-blue-400">
+                <i class="fa-solid fa-shield-halved text-[10px]"></i>
+                <span class="text-[10px]">SUPERUSER AUTH ACTIVE</span>
+            </div>
+        </div>
 
-<div class="card" style="padding:16px 18px;margin-bottom:16px">
-    <div class="card-head" style="margin-bottom:12px;padding-bottom:10px">
-        <div class="card-title" style="font-size:13px"><i class="fa-solid fa-user-plus"></i>Create Console User</div>
+        <div class="flex items-center gap-2 font-mono text-xs text-[var(--ink3)]">
+            <span class="flex items-center gap-1">
+                <i class="fa-solid fa-lock text-[10px] text-amber-500"></i>
+                <span>Access Restricted: System Admin</span>
+            </span>
+        </div>
     </div>
 
-    <form method="POST" action="{{ route('settings.add-user') }}" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
-        @csrf
-        <div style="flex:1;min-width:150px">
-            <label style="display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;color:var(--ink3);margin-bottom:4px;font-family:var(--mono)">Username</label>
-            <input type="text" name="username" placeholder="Username" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--ink1);font-family:var(--mono);font-size:12px;outline:none" required>
-        </div>
-        <div style="flex:1;min-width:150px">
-            <label style="display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;color:var(--ink3);margin-bottom:4px;font-family:var(--mono)">Password</label>
-            <input type="password" name="password" placeholder="Password" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--ink1);font-family:var(--mono);font-size:12px;outline:none" required>
-        </div>
-        <div style="flex:1;min-width:120px">
-            <label style="display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;color:var(--ink3);margin-bottom:4px;font-family:var(--mono)">Role</label>
-            <select name="role" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--ink1);font-family:var(--mono);font-size:12px;outline:none">
+    <!-- 2. ACTION BAR (INLINE USER PROVISIONING & SEARCH) -->
+    <div class="h-10 px-3 py-1.5 bg-[var(--surface)] border-b border-[var(--border)] flex items-center gap-2 flex-shrink-0 overflow-x-auto">
+        <!-- Inline Add User Form -->
+        <form method="POST" action="{{ route('settings.add-user') }}" class="flex items-center gap-1.5 m-0 flex-shrink-0">
+            @csrf
+            <input type="text" name="username" placeholder="Username" required
+                   class="h-[26px] px-2 bg-[var(--surface2)] border border-[var(--border)] rounded text-xs font-mono text-[var(--ink1)] focus:outline-none focus:border-amber-500 w-32">
+            <input type="password" name="password" placeholder="Password" required
+                   class="h-[26px] px-2 bg-[var(--surface2)] border border-[var(--border)] rounded text-xs font-mono text-[var(--ink1)] focus:outline-none focus:border-amber-500 w-32">
+            <select name="role" class="h-[26px] px-2 bg-[var(--surface2)] border border-[var(--border)] rounded text-xs font-mono text-[var(--ink1)] focus:outline-none focus:border-amber-500">
                 <option value="admin">Admin</option>
                 <option value="operator">Operator</option>
             </select>
-        </div>
-        <button type="submit" class="btn-primary"><i class="fa-solid fa-plus"></i> Add User</button>
-    </form>
-</div>
+            <button type="submit" class="btn-dense btn-dense-primary" title="Create Console User">
+                <i class="fa-solid fa-user-plus text-[10px]"></i> <span>Add User</span>
+            </button>
+        </form>
 
-<div class="card" style="padding:0;overflow:hidden">
-    <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface)">
-        <div class="card-title" style="font-size:13.5px"><i class="fa-solid fa-users"></i>Existing Users</div>
-        <div class="cbadge">{{ $users->count() }} users</div>
+        <div class="h-4 w-[1px] bg-[var(--border)] flex-shrink-0"></div>
+
+        <!-- Filter Search -->
+        <div class="relative flex items-center flex-1 max-w-xs">
+            <i class="fa-solid fa-magnifying-glass text-slate-400 absolute left-2 text-[10px] pointer-events-none"></i>
+            <input type="text" id="userSearchInput" placeholder="Filter Username, Role..." oninput="filterUsers()"
+                   class="h-[26px] pl-6 pr-2 bg-[var(--surface2)] border border-[var(--border)] rounded text-xs font-mono text-[var(--ink1)] placeholder-slate-400 focus:outline-none focus:border-amber-500 w-full transition-all">
+        </div>
+
+        <div class="flex-1"></div>
+
+        <span class="text-[11px] font-mono text-[var(--ink3)]" id="userCountDisplay">
+            {{ $users->count() }} Users
+        </span>
     </div>
 
-    <div style="overflow-x:auto">
-        <table class="table-compact">
-            <thead>
-                <tr>
-                    <th style="width:50px;text-align:center">ID</th>
-                    <th>Username</th>
-                    <th>Role</th>
-                    <th>Created At</th>
-                    <th style="text-align:right;width:140px">Action</th>
+    <!-- 3. HIGH-DENSITY DATA GRID -->
+    <div class="flex-1 min-h-0 overflow-y-auto overflow-x-auto relative bg-[var(--surface)]">
+        <table class="w-full table-fixed text-xs border-collapse text-left select-text font-mono">
+            <colgroup>
+                <col class="w-[5%]">
+                <col class="w-[35%]">
+                <col class="w-[20%]">
+                <col class="w-[25%]">
+                <col class="w-[15%]">
+            </colgroup>
+            <thead class="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 shadow-xs">
+                <tr class="h-8 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <th class="py-2 px-3 text-center border-r border-slate-200/70 dark:border-slate-700/70">#</th>
+                    <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Username</th>
+                    <th class="py-2 px-3 text-center border-r border-slate-200/70 dark:border-slate-700/70">Assigned Role</th>
+                    <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Creation Date</th>
+                    <th class="py-2 px-3 text-right">Action Controls</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800" id="usersTbody">
                 @forelse($users as $user)
-                    <tr>
-                        <td style="text-align:center;font-family:var(--mono);color:var(--ink3);font-size:11px">#{{ $user->id }}</td>
-                        <td style="font-weight:700;color:var(--ink1);font-size:12.5px">{{ $user->username }}</td>
-                        <td>
-                            <span class="spill s-pending">
+                    <tr class="user-row h-[34px] border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/75 dark:hover:bg-slate-800/50 transition-colors"
+                        data-user="{{ strtolower($user->username) }}"
+                        data-role="{{ strtolower($user->role) }}"
+                        style="border-left:3px solid {{ $user->role === 'admin' ? 'var(--accent)' : 'var(--teal)' }}">
+                        <!-- Serial -->
+                        <td class="py-2 px-3 text-center text-[var(--ink3)] border-r border-slate-100 dark:border-slate-800/60">
+                            #{{ $user->id }}
+                        </td>
+
+                        <!-- Username -->
+                        <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 font-mono tracking-tight font-semibold text-[var(--ink1)] truncate">
+                            <div class="flex items-center gap-2 truncate">
+                                <div class="w-5 h-5 rounded bg-amber-500/10 text-amber-600 flex items-center justify-center text-[10px] font-bold flex-shrink-0">
+                                    {{ strtoupper(substr($user->username, 0, 1)) }}
+                                </div>
+                                <span class="truncate">{{ $user->username }}</span>
+                            </div>
+                        </td>
+
+                        <!-- Role -->
+                        <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 text-center">
+                            <span class="spill {{ $user->role === 'admin' ? 's-route' : 's-pending' }}">
+                                <span class="sdot"></span>
                                 {{ ucfirst($user->role) }}
                             </span>
                         </td>
-                        <td style="font-family:var(--mono);font-size:11px;color:var(--ink3)">{{ $user->created_at ? $user->created_at->format('Y-m-d H:i') : '—' }}</td>
-                        <td style="text-align:right">
-                            <div style="display:inline-flex;align-items:center;gap:4px">
-                                <button type="button" onclick="togglePasswordForm({{ $user->id }})" class="btn-sm btn-reset" title="Change Password">
-                                    <i class="fa-solid fa-key"></i>
+
+                        <!-- Created At -->
+                        <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 text-[var(--ink3)] text-[11px]">
+                            {{ $user->created_at ? $user->created_at->format('Y-m-d H:i') : '—' }}
+                        </td>
+
+                        <!-- Actions (Anchored Right) -->
+                        <td class="py-2 px-3 text-right">
+                            <div class="inline-flex items-center justify-end gap-1">
+                                <button type="button" onclick="togglePasswordForm({{ $user->id }})" class="btn-dense btn-dense-ghost text-[10px]" title="Update Password">
+                                    <i class="fa-solid fa-key text-[9.5px]"></i> Pass
                                 </button>
-                                <form method="POST" action="{{ route('settings.delete-user', $user->id) }}" style="margin:0;display:inline" onsubmit="return confirm('Delete user {{ $user->username }}?')">
+                                <form method="POST" action="{{ route('settings.delete-user', $user->id) }}" class="m-0 inline" onsubmit="return confirm('Delete user {{ $user->username }}?')">
                                     @csrf
                                     @method('DELETE')
-                                    <button type="submit" class="btn-sm btn-del" title="Delete User">
-                                        <i class="fa-solid fa-trash-can"></i>
+                                    <button type="submit" class="btn-dense btn-dense-del px-1.5" title="Delete User">
+                                        <i class="fa-solid fa-trash-can text-[9.5px]"></i>
                                     </button>
                                 </form>
                             </div>
                         </td>
                     </tr>
-                    <tr id="pw-form-{{ $user->id }}" style="display:none;background:var(--surface2)">
-                        <td colspan="5" style="padding:10px 14px">
-                            <form method="POST" action="{{ route('settings.update-password', $user->id) }}" style="display:flex;gap:8px;align-items:flex-end;max-width:600px;margin:0">
+
+                    <!-- Expandable Password Update Row -->
+                    <tr id="pw-form-{{ $user->id }}" class="hidden bg-[var(--surface2)] border-b border-[var(--bordersoft)]">
+                        <td colspan="5" class="p-2.5">
+                            <form method="POST" action="{{ route('settings.update-password', $user->id) }}" class="flex items-center gap-2 m-0 max-w-xl">
                                 @csrf
-                                <div style="flex:1">
-                                    <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink3);margin-bottom:3px;font-family:var(--mono)">New Password</label>
-                                    <input type="password" name="password" placeholder="New Password" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink1);font-family:var(--mono);font-size:11.5px;outline:none" required>
-                                </div>
-                                <div style="flex:1">
-                                    <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink3);margin-bottom:3px;font-family:var(--mono)">Confirm</label>
-                                    <input type="password" name="password_confirmation" placeholder="Confirm Password" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink1);font-family:var(--mono);font-size:11.5px;outline:none" required>
-                                </div>
-                                <button type="submit" class="btn-primary" style="padding:5px 10px;font-size:11px"><i class="fa-solid fa-floppy-disk"></i> Save</button>
-                                <button type="button" onclick="togglePasswordForm({{ $user->id }})" class="btn-sm btn-reset">Cancel</button>
+                                <span class="text-[10px] font-mono text-[var(--ink3)] uppercase">Change Password:</span>
+                                <input type="password" name="password" placeholder="New Password" required
+                                       class="h-7 px-2 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono text-[var(--ink1)] focus:outline-none focus:border-amber-500 flex-1">
+                                <input type="password" name="password_confirmation" placeholder="Confirm" required
+                                       class="h-7 px-2 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono text-[var(--ink1)] focus:outline-none focus:border-amber-500 flex-1">
+                                <button type="submit" class="btn-dense btn-dense-primary h-7 px-3 text-xs">
+                                    <i class="fa-solid fa-floppy-disk text-[10px]"></i> Save
+                                </button>
+                                <button type="button" onclick="togglePasswordForm({{ $user->id }})" class="btn-dense btn-dense-ghost h-7 px-2 text-xs">
+                                    Cancel
+                                </button>
                             </form>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="5" style="text-align:center;padding:24px;color:var(--ink3);font-family:var(--mono);font-size:12px">No users found.</td>
+                        <td colspan="5" class="py-12 text-center text-xs font-mono text-[var(--ink3)]">
+                            <i class="fa-solid fa-users text-lg mb-2 block opacity-40"></i>
+                            No users registered.
+                        </td>
                     </tr>
                 @endforelse
             </tbody>
         </table>
     </div>
 </div>
+@endsection
 
 @section('scripts')
 <script>
 function togglePasswordForm(id) {
     var el = document.getElementById('pw-form-' + id);
-    if (el.style.display === 'none') {
-        el.style.display = 'table-row';
+    if (!el) return;
+    if (el.classList.contains('hidden')) {
+        el.classList.remove('hidden');
     } else {
-        el.style.display = 'none';
+        el.classList.add('hidden');
     }
 }
+
+function filterUsers(){
+    var searchVal = (document.getElementById('userSearchInput').value || '').toLowerCase().trim();
+    var rows = document.querySelectorAll('#usersTbody tr.user-row');
+    var visibleCount = 0;
+
+    rows.forEach(function(row){
+        var u = (row.getAttribute('data-user') || '').toLowerCase();
+        var r = (row.getAttribute('data-role') || '').toLowerCase();
+
+        var matches = !searchVal || u.includes(searchVal) || r.includes(searchVal);
+        if(matches){
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    var countElem = document.getElementById('userCountDisplay');
+    if(countElem) countElem.textContent = visibleCount + ' Users';
+}
 </script>
-@endsection
 @endsection

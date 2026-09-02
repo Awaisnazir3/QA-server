@@ -20,11 +20,25 @@ class AbuseDetectorService
     /**
      * Fetch recent logs from Asterisk and process new abuse hits without limits
      */
-    public function scanAndProcessLogs(?string $customLogContent = null): array
+    public function scanAndProcessLogs(?string $customLogContent = null, bool $force = false): array
     {
         $logContent = $customLogContent;
 
         if ($logContent === null) {
+            if (!$force) {
+                // Throttle: only scan Asterisk log files at most once every 30 seconds
+                $lastScan = Cache::get('last_abuse_log_scan_time', 0);
+                if ((time() - $lastScan) < 30) {
+                    return [
+                        'new_hits' => 0,
+                        'updated_dids' => [],
+                        'recent_logs' => [],
+                    ];
+                }
+            }
+
+            Cache::put('last_abuse_log_scan_time', time(), 120);
+
             $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
 
             if (!$isWindows) {
@@ -232,57 +246,74 @@ class AbuseDetectorService
         $newHitsCount = 0;
         $updatedDids = [];
 
-        // Save every single detected call event to Database without limits
+        // 1. Gather all unprocessed events and unique phone numbers
+        $unprocessedEvents = [];
         foreach ($callEvents as $token => $event) {
-            // Check if this call instance was already processed
-            if (isset($processedCalls[$token])) {
-                continue;
+            if (!isset($processedCalls[$token])) {
+                $unprocessedEvents[$token] = $event;
             }
+        }
 
-            $phone = $event['phone_number'];
-            $trunk = $event['source_trunk'];
-            $hitTime = $event['timestamp'] instanceof Carbon ? $event['timestamp'] : Carbon::parse($event['timestamp']);
-
-            // Find existing DID in abuse list or create new
-            $abuseDid = AbuseDid::where('phone_number', $phone)->first();
-
-            if ($abuseDid) {
-                // Increment hits count without any cap (1 -> 2 -> 3 -> ... -> 10,000+)
-                $abuseDid->hits_count = ($abuseDid->hits_count ?? 1) + 1;
-                $abuseDid->last_hit_at = $hitTime;
-                if (!empty($trunk) && $trunk !== 'Asterisk-Inbound') {
-                    $abuseDid->source_trunk = $trunk;
-                }
-                if (!empty($event['call_id'])) {
-                    $abuseDid->last_call_id = $event['call_id'];
-                }
-                $abuseDid->raw_log = $event['raw_line'];
-                $abuseDid->save();
-            } else {
-                // Create new Abuse DID record with 1 hit
-                $abuseDid = AbuseDid::create([
-                    'phone_number' => $phone,
-                    'source_trunk' => $trunk,
-                    'hits_count' => 1,
-                    'status' => 'rejected',
-                    'first_hit_at' => $hitTime,
-                    'last_hit_at' => $hitTime,
-                    'last_call_id' => $event['call_id'],
-                    'raw_log' => $event['raw_line'],
-                ]);
-            }
-
-            // Mark token as processed
-            $processedCalls[$token] = time();
-            $newHitsCount++;
-            $updatedDids[$phone] = [
-                'id' => $abuseDid->id,
-                'phone_number' => $abuseDid->phone_number,
-                'hits_count' => (int) $abuseDid->hits_count,
-                'source_trunk' => $abuseDid->source_trunk,
-                'last_hit_at' => $abuseDid->last_hit_at ? $abuseDid->last_hit_at->format('Y-m-d H:i:s') : '',
-                'status' => $abuseDid->status,
+        if (empty($unprocessedEvents)) {
+            return [
+                'new_hits' => 0,
+                'updated_dids' => [],
+                'recent_logs' => array_slice(array_reverse($recentLogLines), 0, 50),
             ];
+        }
+
+        $distinctPhones = array_values(array_unique(array_column($unprocessedEvents, 'phone_number')));
+        $existingDids = AbuseDid::whereIn('phone_number', $distinctPhones)->get()->keyBy('phone_number');
+
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            foreach ($unprocessedEvents as $token => $event) {
+                $phone = $event['phone_number'];
+                $trunk = $event['source_trunk'];
+                $hitTime = $event['timestamp'] instanceof Carbon ? $event['timestamp'] : Carbon::parse($event['timestamp']);
+
+                $abuseDid = $existingDids->get($phone);
+
+                if ($abuseDid) {
+                    $abuseDid->hits_count = ($abuseDid->hits_count ?? 1) + 1;
+                    $abuseDid->last_hit_at = $hitTime;
+                    if (!empty($trunk) && $trunk !== 'Asterisk-Inbound') {
+                        $abuseDid->source_trunk = $trunk;
+                    }
+                    if (!empty($event['call_id'])) {
+                        $abuseDid->last_call_id = $event['call_id'];
+                    }
+                    $abuseDid->raw_log = $event['raw_line'];
+                    $abuseDid->save();
+                } else {
+                    $abuseDid = AbuseDid::create([
+                        'phone_number' => $phone,
+                        'source_trunk' => $trunk,
+                        'hits_count' => 1,
+                        'status' => 'rejected',
+                        'first_hit_at' => $hitTime,
+                        'last_hit_at' => $hitTime,
+                        'last_call_id' => $event['call_id'],
+                        'raw_log' => $event['raw_line'],
+                    ]);
+                    $existingDids->put($phone, $abuseDid);
+                }
+
+                $processedCalls[$token] = time();
+                $newHitsCount++;
+                $updatedDids[$phone] = [
+                    'id' => $abuseDid->id,
+                    'phone_number' => $abuseDid->phone_number,
+                    'hits_count' => (int) $abuseDid->hits_count,
+                    'source_trunk' => $abuseDid->source_trunk,
+                    'last_hit_at' => $abuseDid->last_hit_at ? $abuseDid->last_hit_at->format('Y-m-d H:i:s') : '',
+                    'status' => $abuseDid->status,
+                ];
+            }
+            \Illuminate\Support\Facades\DB::commit();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            Log::error("Failed to save abuse call events: " . $e->getMessage());
         }
 
         // Limit processed tokens cache size to prevent memory leak while holding up to 20,000 recent call tokens

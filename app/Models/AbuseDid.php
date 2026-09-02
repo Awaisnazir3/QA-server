@@ -28,12 +28,23 @@ class AbuseDid extends Model
         'hits_count' => 'integer',
     ];
 
+    protected static bool $tableVerified = false;
+
     /**
      * Helper to auto-create table if missing and enforce unique constraint
      */
     public static function ensureTableExists(): void
     {
+        if (static::$tableVerified) {
+            return;
+        }
+
         try {
+            if (\Illuminate\Support\Facades\Cache::get('abuse_dids_table_verified')) {
+                static::$tableVerified = true;
+                return;
+            }
+
             if (!Schema::hasTable('abuse_dids')) {
                 Schema::create('abuse_dids', function (Blueprint $table) {
                     $table->id();
@@ -89,6 +100,9 @@ class AbuseDid extends Model
                     // Ignore if already unique or schema query not supported
                 }
             }
+
+            static::$tableVerified = true;
+            \Illuminate\Support\Facades\Cache::put('abuse_dids_table_verified', true, 86400);
         } catch (\Throwable $e) {
             // Ignore if table already exists or permission issue
         }
