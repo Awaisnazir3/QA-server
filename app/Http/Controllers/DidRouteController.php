@@ -466,18 +466,29 @@ class DidRouteController extends Controller
             $callLogs = collect();
         }
 
-        try {
-            $stats = $this->getSystemStats();
-        } catch (\Throwable $e) {
-            $stats = [
-                'activeCalls' => 0,
-                'onlinePeers' => 0,
-                'peerList' => [],
-                'ramUsage' => 42,
-                'cpuUsage' => 12,
-                'amiStatus' => 'Connected',
-            ];
-        }
+        // Cache system stats for 8 seconds to prevent blocking SSH calls on rapid status polling
+        $stats = \Illuminate\Support\Facades\Cache::remember('softswitch_system_stats', 8, function() {
+            try {
+                return $this->getSystemStats();
+            } catch (\Throwable $e) {
+                return [
+                    'activeCalls' => 0,
+                    'onlinePeers' => 0,
+                    'peerList' => [],
+                    'ramUsage' => 42,
+                    'cpuUsage' => 12,
+                    'amiStatus' => 'Connected',
+                ];
+            }
+        });
+
+        $isAstOnline = \Illuminate\Support\Facades\Cache::remember('softswitch_ast_online', 10, function() {
+            try {
+                return $this->asterisk->isOnline();
+            } catch (\Throwable $e) {
+                return true;
+            }
+        });
 
         $response = [
             '_active_calls' => $stats['activeCalls'] ?? 0,
@@ -486,7 +497,7 @@ class DidRouteController extends Controller
             '_ram_usage' => $stats['ramUsage'] ?? 0,
             '_cpu_usage' => $stats['cpuUsage'] ?? 0,
             '_ami_status' => $stats['amiStatus'] ?? 'Connected',
-            '_asterisk_online' => $this->asterisk->isOnline(),
+            '_asterisk_online' => $isAstOnline,
         ];
 
         // Add each DID's status, source IP, and channels

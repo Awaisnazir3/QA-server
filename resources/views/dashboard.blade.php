@@ -719,6 +719,8 @@ function filterDidGrid(){
             filterDidGrid();
         });
     });
+})();
+
 // Strict Client-Side Duplicate Prevention on Deploy Form
 (function initProvisionValidation() {
     var form = document.getElementById('provisionForm');
