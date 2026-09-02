@@ -53,8 +53,8 @@ class LiveCallController extends Controller
         if (!empty($channel)) {
             $channel = preg_replace('/[^a-zA-Z0-9\/\-@_\.;]/', '', $channel);
             
-            // Verify that this channel belongs to the user
-            $userDids = \App\Models\CallLog::pluck('phone_number')
+            // Verify that this channel belongs to softswitch DIDs
+            $userDids = \App\Models\CallLog::withoutGlobalScopes()->pluck('phone_number')
                 ->map(function($num) { return preg_replace('/[^0-9]/', '', $num); })
                 ->filter()
                 ->toArray();
@@ -100,8 +100,8 @@ class LiveCallController extends Controller
             }
         }
 
-        // Filter calls to only show channels corresponding to current user's DIDs
-        $userDids = \App\Models\CallLog::pluck('phone_number')
+        // Filter calls to only show channels corresponding to softswitch DIDs (across all scopes)
+        $userDids = \App\Models\CallLog::withoutGlobalScopes()->pluck('phone_number')
             ->map(function($num) { return preg_replace('/[^0-9]/', '', $num); })
             ->filter()
             ->toArray();

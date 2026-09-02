@@ -414,8 +414,8 @@ class DidRouteController extends Controller
             }
         }
 
-        // Filter calls to only show channels corresponding to current user's DIDs
-        $userDids = CallLog::pluck('phone_number')
+        // Filter calls to only show channels corresponding to softswitch DIDs (across all scopes)
+        $userDids = CallLog::withoutGlobalScopes()->pluck('phone_number')
             ->map(function($num) { return preg_replace('/[^0-9]/', '', $num); })
             ->filter()
             ->toArray();
@@ -506,8 +506,17 @@ class DidRouteController extends Controller
             }
         });
 
+        $liveChannels = \Illuminate\Support\Facades\Cache::remember('softswitch_live_channels', 2, function() {
+            try {
+                return $this->getActiveChannels();
+            } catch (\Throwable $e) {
+                return [];
+            }
+        });
+
         $response = [
-            '_active_calls' => $stats['activeCalls'] ?? 0,
+            '_active_calls' => count($liveChannels),
+            '_live_channels' => $liveChannels,
             '_online_peers' => $stats['onlinePeers'] ?? 0,
             '_total_peers' => count($stats['peerList'] ?? []),
             '_ram_usage' => $stats['ramUsage'] ?? 0,

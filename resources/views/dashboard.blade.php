@@ -391,58 +391,96 @@
              PANEL C: LIVE ACTIVE CALLS MONITOR
              ============================================== -->
         <div id="tabLiveCalls" class="tab-pane hidden flex flex-col flex-1 h-full min-h-0 overflow-hidden bg-[var(--surface)]">
-            <div class="h-10 px-3 py-1.5 bg-[var(--surface2)] border-b border-[var(--border)] flex items-center justify-between flex-shrink-0">
-                <div class="flex items-center gap-2">
-                    <i class="fa-solid fa-phone-volume text-emerald-500 text-xs"></i>
-                    <span class="text-xs font-bold text-[var(--ink1)] font-disp">Live Active Channels</span>
+            <div class="h-10 px-3 py-1.5 bg-[var(--surface)] border-b border-[var(--border)] flex items-center gap-2 flex-shrink-0">
+                <!-- Search Filter -->
+                <div class="relative flex items-center flex-1 max-w-xs">
+                    <i class="fa-solid fa-magnifying-glass text-slate-400 absolute left-2 text-[10px] pointer-events-none"></i>
+                    <input type="text" id="liveCallSearchDashboard" placeholder="Filter Channel, Exten, Context..." oninput="filterLiveCallsDashboard()"
+                           class="h-[26px] pl-6 pr-2 bg-[var(--surface2)] border border-[var(--border)] rounded text-xs font-mono text-[var(--ink1)] placeholder-slate-400 focus:outline-none focus:border-emerald-500 w-full transition-all">
                 </div>
-                <div class="flex items-center gap-2">
-                    <form method="POST" action="{{ route('calls.hangup-all') }}" class="m-0" onsubmit="return confirm('Disconnect all live calls?')">
+
+                <div class="flex-1"></div>
+
+                <!-- Hangup All -->
+                @if(!empty($liveCalls) && count($liveCalls) > 0)
+                    <form method="POST" action="{{ route('calls.hangup-all') }}" class="m-0" onsubmit="return confirm('Disconnect ALL active calls?')">
                         @csrf
-                        <button type="submit" class="btn-dense btn-dense-del">
-                            <i class="fa-solid fa-phone-slash text-[10px]"></i> <span>Hangup All Live Calls</span>
+                        <button type="submit" class="btn-dense btn-dense-del flashing" title="Hangup all active sessions">
+                            <i class="fa-solid fa-phone-slash text-[10px]"></i> <span>Hangup All Calls</span>
                         </button>
                     </form>
-                    <span class="text-[11px] font-mono text-[var(--ink3)]">
-                        {{ count($liveCalls ?? []) }} Active
-                    </span>
-                </div>
+                @endif
+
+                <span class="text-[11px] font-mono text-[var(--ink3)] ml-1" id="liveCallDisplayCountDashboard">
+                    {{ count($liveCalls ?? []) }} Active
+                </span>
             </div>
-            <div class="flex-1 min-h-0 overflow-y-auto">
-                <table class="w-full table-fixed text-xs border-collapse text-left font-mono">
+
+            <!-- High-Density Data Grid -->
+            <div class="flex-1 min-h-0 overflow-y-auto overflow-x-auto relative bg-[var(--surface)]">
+                <table class="w-full table-fixed text-xs border-collapse text-left select-text font-mono">
                     <colgroup>
+                        <col class="w-[4%]">
                         <col class="w-[36%]">
                         <col class="w-[22%]">
-                        <col class="w-[18%]">
+                        <col class="w-[16%]">
                         <col class="w-[12%]">
-                        <col class="w-[12%]">
+                        <col class="w-[10%]">
                     </colgroup>
-                    <thead class="sticky top-0 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                        <tr class="h-8">
-                            <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Channel Name</th>
+                    <thead class="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 shadow-xs">
+                        <tr class="h-8 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            <th class="py-2 px-3 text-center border-r border-slate-200/70 dark:border-slate-700/70">#</th>
+                            <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Channel Identifier</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Context</th>
-                            <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Extension</th>
+                            <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Target Extension</th>
                             <th class="py-2 px-3 text-center border-r border-slate-200/70 dark:border-slate-700/70">State</th>
                             <th class="py-2 px-3 text-right">Action</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-xs" id="liveCallsTbody">
-                        @forelse($liveCalls ?? [] as $call)
-                            <tr class="h-[34px] border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/75 dark:hover:bg-slate-800/50 transition-colors">
-                                <td class="py-2 px-3 font-mono tracking-tight font-semibold text-[var(--ink1)] border-r border-slate-100 dark:border-slate-800/60 truncate">{{ $call['channel'] }}</td>
-                                <td class="py-2 px-3 text-[var(--ink2)] border-r border-slate-100 dark:border-slate-800/60 truncate">{{ $call['context'] }}</td>
-                                <td class="py-2 px-3 text-[var(--ink2)] border-r border-slate-100 dark:border-slate-800/60">{{ $call['exten'] }}</td>
-                                <td class="py-2 px-3 text-center border-r border-slate-100 dark:border-slate-800/60">
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800" id="liveCallsTbody">
+                        @forelse($liveCalls ?? [] as $cIdx => $call)
+                            <tr class="live-call-row h-[34px] border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/75 dark:hover:bg-slate-800/50 transition-colors"
+                                data-channel="{{ strtolower($call['channel']) }}"
+                                data-context="{{ strtolower($call['context']) }}"
+                                data-exten="{{ strtolower($call['exten']) }}"
+                                style="border-left:3px solid var(--ok)">
+                                <!-- Serial -->
+                                <td class="py-2 px-3 text-center text-[var(--ink3)] border-r border-slate-100 dark:border-slate-800/60">
+                                    {{ $cIdx + 1 }}
+                                </td>
+
+                                <!-- Channel Identifier -->
+                                <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 font-mono tracking-tight font-semibold text-[var(--ink1)] truncate">
+                                    <div class="flex items-center gap-1.5 truncate">
+                                        <i class="fa-solid fa-phone-volume text-[10px] text-emerald-500 flex-shrink-0"></i>
+                                        <span class="truncate">{{ $call['channel'] }}</span>
+                                    </div>
+                                </td>
+
+                                <!-- Context -->
+                                <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 text-[var(--ink2)] truncate">
+                                    {{ $call['context'] }}
+                                </td>
+
+                                <!-- Target Extension -->
+                                <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 text-[var(--ink1)] font-semibold">
+                                    {{ $call['exten'] }}
+                                </td>
+
+                                <!-- State -->
+                                <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 text-center">
                                     <span class="spill s-pass">
                                         <span class="sdot"></span>
                                         {{ ucfirst(strtolower($call['state'])) }}
                                     </span>
                                 </td>
-                                <td class="py-2 px-3 text-right">
-                                    <form method="POST" action="{{ route('calls.hangup-channel') }}" class="m-0 inline">
+
+                                <!-- Action -->
+                                <td class="py-2.5 px-3 text-right">
+                                    <form method="POST" action="{{ route('calls.hangup-channel') }}" class="m-0 inline" onsubmit="return confirm('Hangup channel {{ $call['channel'] }}?')">
                                         @csrf
                                         <input type="hidden" name="channel" value="{{ $call['channel'] }}">
-                                        <button type="submit" class="btn-dense btn-dense-del px-2" title="Hangup channel">
+                                        <button type="submit" class="btn-dense btn-dense-del px-2" title="Hangup Channel">
                                             <i class="fa-solid fa-phone-slash text-[10px]"></i> Hangup
                                         </button>
                                     </form>
@@ -450,8 +488,9 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="py-12 text-center text-xs font-mono text-[var(--ink3)]">
-                                    No active calls in session right now.
+                                <td colspan="6" class="py-12 text-center text-xs font-mono text-[var(--ink3)]">
+                                    <i class="fa-solid fa-headset text-lg mb-2 block opacity-40"></i>
+                                    No active call channels currently online.
                                 </td>
                             </tr>
                         @endforelse
@@ -769,6 +808,30 @@ function filterDidGrid(){
         });
     });
 })();
+
+// Real-Time Search Filter for Live Calls tab
+function filterLiveCallsDashboard(){
+    var searchVal = (document.getElementById('liveCallSearchDashboard') ? document.getElementById('liveCallSearchDashboard').value : '').toLowerCase().trim();
+    var rows = document.querySelectorAll('#liveCallsTbody tr.live-call-row');
+    var visibleCount = 0;
+
+    rows.forEach(function(row){
+        var ch = (row.getAttribute('data-channel') || '').toLowerCase();
+        var ctx = (row.getAttribute('data-context') || '').toLowerCase();
+        var ext = (row.getAttribute('data-exten') || '').toLowerCase();
+
+        var matches = !searchVal || ch.includes(searchVal) || ctx.includes(searchVal) || ext.includes(searchVal);
+        if(matches){
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    var countElem = document.getElementById('liveCallDisplayCountDashboard');
+    if(countElem) countElem.textContent = visibleCount + ' Active';
+}
 
 // Strict Client-Side Duplicate Prevention on Deploy Form
 (function initProvisionValidation() {
@@ -1389,6 +1452,54 @@ function updateDIDStatuses() {
                     }
                 }
             });
+
+            // Update Live Active Channels Table in Tab C
+            if (data.hasOwnProperty('_live_channels') && document.getElementById('liveCallsTbody')) {
+                var tbody = document.getElementById('liveCallsTbody');
+                var liveList = data['_live_channels'] || [];
+                var countElem = document.getElementById('liveCallDisplayCountDashboard');
+                if (countElem) countElem.textContent = liveList.length + ' Active';
+
+                if (liveList.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="py-12 text-center text-xs font-mono text-[var(--ink3)]"><i class="fa-solid fa-headset text-lg mb-2 block opacity-40"></i>No active call channels currently online.</td></tr>';
+                } else {
+                    var html = '';
+                    liveList.forEach(function(call, idx) {
+                        var chSafe = (call.channel || '').replace(/"/g, '&quot;');
+                        var ctxSafe = (call.context || '');
+                        var extSafe = (call.exten || '');
+                        var stSafe = (call.state || 'Active');
+                        var stClean = stSafe.charAt(0).toUpperCase() + stSafe.slice(1).toLowerCase();
+
+                        html += '<tr class="live-call-row h-[34px] border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/75 dark:hover:bg-slate-800/50 transition-colors" ' +
+                            'data-channel="' + chSafe.toLowerCase() + '" data-context="' + ctxSafe.toLowerCase() + '" data-exten="' + extSafe.toLowerCase() + '" style="border-left:3px solid var(--ok)">' +
+                            '<td class="py-2 px-3 text-center text-[var(--ink3)] border-r border-slate-100 dark:border-slate-800/60">' + (idx + 1) + '</td>' +
+                            '<td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 font-mono tracking-tight font-semibold text-[var(--ink1)] truncate">' +
+                                '<div class="flex items-center gap-1.5 truncate">' +
+                                    '<i class="fa-solid fa-phone-volume text-[10px] text-emerald-500 flex-shrink-0"></i>' +
+                                    '<span class="truncate">' + chSafe + '</span>' +
+                                '</div>' +
+                            '</td>' +
+                            '<td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 text-[var(--ink2)] truncate">' + ctxSafe + '</td>' +
+                            '<td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 text-[var(--ink1)] font-semibold">' + extSafe + '</td>' +
+                            '<td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 text-center">' +
+                                '<span class="spill s-pass"><span class="sdot"></span> ' + stClean + '</span>' +
+                            '</td>' +
+                            '<td class="py-2.5 px-3 text-right">' +
+                                '<form method="POST" action="{{ route("calls.hangup-channel") }}" class="m-0 inline" onsubmit="return confirm(\'Hangup channel ' + chSafe + '?\')">' +
+                                    '<input type="hidden" name="_token" value="{{ csrf_token() }}">' +
+                                    '<input type="hidden" name="channel" value="' + chSafe + '">' +
+                                    '<button type="submit" class="btn-dense btn-dense-del px-2" title="Hangup Channel">' +
+                                        '<i class="fa-solid fa-phone-slash text-[10px]"></i> Hangup' +
+                                    '</button>' +
+                                '</form>' +
+                            '</td>' +
+                        '</tr>';
+                    });
+                    tbody.innerHTML = html;
+                    if (typeof filterLiveCallsDashboard === 'function') filterLiveCallsDashboard();
+                }
+            }
         })
         .catch(function(err) {
             if(spinIcon) spinIcon.classList.remove('fa-spin');
