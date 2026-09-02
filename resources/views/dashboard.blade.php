@@ -770,74 +770,75 @@ function handleRouteDID(didId, phoneNumber) {
         return false;
     }
 
-    showConfirmModal('Route DID on 7788?', 'Route associated DID ' + liveDid + ' to 7788 now?', function() {
-        var btn = row ? row.querySelector('.btn-route-action') : null;
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-[9.5px]"></i> <span>Routing...</span>';
-        }
+    var btn = row ? row.querySelector('.btn-route-action') : null;
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-[9.5px]"></i> <span>Routing...</span>';
+    }
 
-        fetch("{{ url('/dashboard') }}/" + didId + "/mark-route", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({
-                sip_peer: '7788'
-            })
+    fetch("{{ url('/dashboard') }}/" + didId + "/mark-route", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({
+            sip_peer: '7788'
         })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-            if (data.success) {
-                if (row) {
-                    row.setAttribute('data-status', 'route');
-                    row.setAttribute('data-ip', '7788');
-                    row.style.borderLeftColor = 'var(--accent)';
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.success) {
+            if (row) {
+                row.setAttribute('data-status', 'route');
+                row.setAttribute('data-ip', '7788');
+                row.style.borderLeftColor = 'var(--accent)';
 
-                    var spill = row.querySelector('.spill');
-                    var span = row.querySelector('.status-text');
-                    if (spill && span) {
-                        spill.className = 'spill s-route';
-                        span.textContent = 'Route';
-                    }
-
-                    var ipElem = row.querySelector('.source-ip-text');
-                    if (ipElem) ipElem.textContent = '7788';
-
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.className = 'btn-dense btn-dense-ghost text-amber-600 dark:text-amber-400 border-amber-500/30 btn-route-action';
-                        btn.innerHTML = '<i class="fa-solid fa-check text-[10px]"></i> <span>Routed</span>';
-                        btn.title = 'Re-route associated DID to 7788';
-                    }
+                var spill = row.querySelector('.spill');
+                var span = row.querySelector('.status-text');
+                if (spill && span) {
+                    spill.className = 'spill s-route';
+                    span.textContent = 'Route';
                 }
 
-                logAmiEvent('route', 'ROUTE_7788', 'DID ' + liveDid + ' successfully routed on 7788');
-                filterDidGrid();
-            } else {
+                var ipElem = row.querySelector('.source-ip-text');
+                if (ipElem) ipElem.textContent = '7788';
+
                 if (btn) {
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-route text-[10px]"></i> <span>Route</span>';
+                    btn.className = 'btn-dense btn-dense-ghost text-amber-600 dark:text-amber-400 border-amber-500/30 btn-route-action';
+                    btn.innerHTML = '<i class="fa-solid fa-check text-[10px]"></i> <span>Routed</span>';
+                    btn.title = 'Re-route associated DID to 7788';
                 }
-                showErrModal(data.message || 'Failed to route DID on 7788.');
             }
-        })
-        .catch(function(err) {
-            // Fallback: submit standard form if AJAX fails
-            var fallbackForm = document.createElement('form');
-            fallbackForm.method = 'POST';
-            fallbackForm.action = "{{ url('/dashboard') }}/" + didId + "/mark-route";
-            var csrfInput = document.createElement('input');
-            csrfInput.type = 'hidden';
-            csrfInput.name = '_token';
-            csrfInput.value = '{{ csrf_token() }}';
-            fallbackForm.appendChild(csrfInput);
-            document.body.appendChild(fallbackForm);
-            fallbackForm.submit();
-        });
+
+            logAmiEvent('route', 'ROUTE_7788', 'DID ' + liveDid + ' successfully routed on 7788');
+            filterDidGrid();
+
+            // Immediately poll statuses so state remains synchronized
+            setTimeout(updateDIDStatuses, 400);
+        } else {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-route text-[10px]"></i> <span>Route</span>';
+            }
+            showErrModal(data.message || 'Failed to route DID on 7788.');
+        }
+    })
+    .catch(function(err) {
+        // Fallback: submit standard form if AJAX fails
+        var fallbackForm = document.createElement('form');
+        fallbackForm.method = 'POST';
+        fallbackForm.action = "{{ url('/dashboard') }}/" + didId + "/mark-route";
+        var csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_token';
+        csrfInput.value = '{{ csrf_token() }}';
+        fallbackForm.appendChild(csrfInput);
+        document.body.appendChild(fallbackForm);
+        fallbackForm.submit();
     });
 }
 
@@ -1209,11 +1210,24 @@ function updateDIDStatuses() {
             var visibleCount = 0;
             document.querySelectorAll('#didGridTbody tr.did-row').forEach(function(row) {
                 var didId = row.getAttribute('data-id');
-                var didData = data[didId];
+                var rawDid = (row.getAttribute('data-did') || '').trim();
+                var cleanDid = rawDid.replace(/[^0-9]/g, '');
+
+                var didData = data[didId] || (cleanDid ? data['did_' + cleanDid] : null) || (cleanDid ? data[cleanDid] : null);
                 if (!didData) return;
 
-                var newStatus = String(didData.status || 'pending').toLowerCase().trim();
-                var newSourceIp = String(didData.source_ip || '—').trim();
+                var newStatus = 'pending';
+                var newSourceIp = '';
+
+                if (typeof didData === 'object' && didData !== null) {
+                    newStatus = String(didData.status || 'pending').toLowerCase().trim();
+                    if (didData.source_ip && didData.source_ip !== '—') {
+                        newSourceIp = String(didData.source_ip).trim();
+                    }
+                } else if (typeof didData === 'string') {
+                    newStatus = didData.toLowerCase().trim();
+                }
+
                 if (!['pass', 'fail', 'route'].includes(newStatus)) newStatus = 'pending';
 
                 var oldStatus = row.getAttribute('data-status');
@@ -1271,11 +1285,13 @@ function updateDIDStatuses() {
                 }
 
                 // Update Source IP
-                var ipElem = row.querySelector('.source-ip-text');
-                if(ipElem && ipElem.textContent.trim() !== newSourceIp){
-                    ipElem.textContent = newSourceIp;
-                    row.setAttribute('data-ip', newSourceIp);
-                    logAmiEvent('channel', 'IP_UPDATE', 'DID ' + row.getAttribute('data-did') + ' mapped to IP: ' + newSourceIp);
+                if(newSourceIp){
+                    var ipElem = row.querySelector('.source-ip-text');
+                    if(ipElem && ipElem.textContent.trim() !== newSourceIp){
+                        ipElem.textContent = newSourceIp;
+                        row.setAttribute('data-ip', newSourceIp);
+                        logAmiEvent('channel', 'IP_UPDATE', 'DID ' + row.getAttribute('data-did') + ' mapped to IP: ' + newSourceIp);
+                    }
                 }
             });
         })
@@ -1285,10 +1301,10 @@ function updateDIDStatuses() {
         });
 }
 
-// 7. Auto-Update Interval Lifecycle
+// 7. Auto-Update Interval Lifecycle (Every 2 seconds for live status response)
 document.addEventListener('DOMContentLoaded', function() {
     updateDIDStatuses();
-    autoUpdateInterval = setInterval(updateDIDStatuses, 3000);
+    autoUpdateInterval = setInterval(updateDIDStatuses, 2000);
 });
 
 window.addEventListener('beforeunload', function() {

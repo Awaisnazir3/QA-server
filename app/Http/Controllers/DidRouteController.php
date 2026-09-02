@@ -460,7 +460,8 @@ class DidRouteController extends Controller
     public function apiStatus()
     {
         try {
-            $callLogs = CallLog::all();
+            // Fetch all call logs regardless of user scope so real-time status updates apply to all rows
+            $callLogs = CallLog::withoutGlobalScopes()->get();
         } catch (\Throwable $e) {
             $callLogs = collect();
         }
@@ -490,13 +491,31 @@ class DidRouteController extends Controller
 
         // Add each DID's status, source IP, and channels
         foreach ($callLogs as $log) {
-            $response[$log->id] = [
-                'status' => $log->status ?: 'pending',
+            $statusClean = !empty($log->status) ? strtolower(trim($log->status)) : 'pending';
+            if (!in_array($statusClean, ['pass', 'fail', 'route'])) {
+                $statusClean = 'pending';
+            }
+
+            $didPayload = [
+                'id' => $log->id,
+                'phone_number' => $log->phone_number,
+                'status' => $statusClean,
                 'source_ip' => $log->source_ip ?: '—',
                 'checked_channels' => $log->checked_channels,
             ];
+
+            // Primary lookup by numeric ID
+            $response[$log->id] = $didPayload;
+
+            // Secondary lookup by clean phone number
+            $cleanPhone = preg_replace('/[^0-9]/', '', $log->phone_number);
+            if (!empty($cleanPhone)) {
+                $response['did_' . $cleanPhone] = $didPayload;
+            }
         }
 
-        return response()->json($response);
+        return response()->json($response)
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache');
     }
 }
