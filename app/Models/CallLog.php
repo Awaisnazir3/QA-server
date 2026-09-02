@@ -72,23 +72,49 @@ class CallLog extends Model
      */
     public function getDisplayCallerIdAttribute(): string
     {
-        if (!empty($this->attributes['caller_id'])) {
+        if (!empty($this->attributes['caller_id']) && $this->attributes['caller_id'] !== '—') {
             return $this->attributes['caller_id'];
         }
-        if (!empty($this->attributes['caller_name']) && $this->attributes['caller_name'] !== 'channel_test_active') {
+        if (!empty($this->attributes['caller_name']) && !in_array($this->attributes['caller_name'], ['channel_test_active', '—'])) {
             return $this->attributes['caller_name'];
         }
         try {
             $cleanPhone = preg_replace('/[^0-9]/', '', $this->phone_number);
+            $subPhone = strlen($cleanPhone) >= 7 ? substr($cleanPhone, -7) : $cleanPhone;
+
+            // 1. Check Asterisk CDR table
             $latestCdr = Cdr::where('destination', $this->phone_number)
                 ->orWhere('destination', $cleanPhone)
-                ->latest('start_time')
+                ->orWhere('destination', '+' . $cleanPhone)
+                ->orWhere('destination', 'like', '%' . $subPhone)
+                ->orWhere('caller_id', $this->phone_number)
+                ->orWhere('caller_id', $cleanPhone)
+                ->orderBy('id', 'desc')
                 ->first();
+
             if ($latestCdr && !empty($latestCdr->caller_id)) {
+                @\Illuminate\Support\Facades\DB::table('call_logs')->where('id', $this->id)->update(['caller_id' => $latestCdr->caller_id]);
                 return $latestCdr->caller_id;
             }
-            $latestTest = $this->channelTestCdrs()->latest()->first();
+
+            // 2. Check CallHistory table
+            $latestHist = CallHistory::withoutGlobalScopes()
+                ->where('callee_number', $this->phone_number)
+                ->orWhere('callee_number', $cleanPhone)
+                ->orWhere('callee_number', '+' . $cleanPhone)
+                ->orWhere('callee_number', 'like', '%' . $subPhone)
+                ->orderBy('id', 'desc')
+                ->first();
+
+            if ($latestHist && !empty($latestHist->caller_id)) {
+                @\Illuminate\Support\Facades\DB::table('call_logs')->where('id', $this->id)->update(['caller_id' => $latestHist->caller_id]);
+                return $latestHist->caller_id;
+            }
+
+            // 3. Check ChannelTestCdr table
+            $latestTest = $this->channelTestCdrs()->latest('id')->first();
             if ($latestTest && !empty($latestTest->caller_id)) {
+                @\Illuminate\Support\Facades\DB::table('call_logs')->where('id', $this->id)->update(['caller_id' => $latestTest->caller_id]);
                 return $latestTest->caller_id;
             }
         } catch (\Throwable $e) {}
@@ -100,21 +126,50 @@ class CallLog extends Model
      */
     public function getDisplayDateTimeAttribute(): string
     {
-        if (!empty($this->attributes['call_datetime'])) {
+        if (!empty($this->attributes['call_datetime']) && $this->attributes['call_datetime'] !== '—') {
             return \Carbon\Carbon::parse($this->attributes['call_datetime'])->format('Y-m-d H:i:s');
         }
         try {
             $cleanPhone = preg_replace('/[^0-9]/', '', $this->phone_number);
+            $subPhone = strlen($cleanPhone) >= 7 ? substr($cleanPhone, -7) : $cleanPhone;
+
+            // 1. Check Asterisk CDR table
             $latestCdr = Cdr::where('destination', $this->phone_number)
                 ->orWhere('destination', $cleanPhone)
-                ->latest('start_time')
+                ->orWhere('destination', '+' . $cleanPhone)
+                ->orWhere('destination', 'like', '%' . $subPhone)
+                ->orWhere('caller_id', $this->phone_number)
+                ->orWhere('caller_id', $cleanPhone)
+                ->orderBy('id', 'desc')
                 ->first();
+
             if ($latestCdr && !empty($latestCdr->start_time)) {
-                return $latestCdr->start_time->format('Y-m-d H:i:s');
+                $fmt = \Carbon\Carbon::parse($latestCdr->start_time)->format('Y-m-d H:i:s');
+                @\Illuminate\Support\Facades\DB::table('call_logs')->where('id', $this->id)->update(['call_datetime' => $fmt]);
+                return $fmt;
             }
-            $latestTest = $this->channelTestCdrs()->latest()->first();
+
+            // 2. Check CallHistory table
+            $latestHist = CallHistory::withoutGlobalScopes()
+                ->where('callee_number', $this->phone_number)
+                ->orWhere('callee_number', $cleanPhone)
+                ->orWhere('callee_number', '+' . $cleanPhone)
+                ->orWhere('callee_number', 'like', '%' . $subPhone)
+                ->orderBy('id', 'desc')
+                ->first();
+
+            if ($latestHist && !empty($latestHist->start_time)) {
+                $fmt = \Carbon\Carbon::parse($latestHist->start_time)->format('Y-m-d H:i:s');
+                @\Illuminate\Support\Facades\DB::table('call_logs')->where('id', $this->id)->update(['call_datetime' => $fmt]);
+                return $fmt;
+            }
+
+            // 3. Check ChannelTestCdr table
+            $latestTest = $this->channelTestCdrs()->latest('id')->first();
             if ($latestTest && !empty($latestTest->created_at)) {
-                return $latestTest->created_at->format('Y-m-d H:i:s');
+                $fmt = $latestTest->created_at->format('Y-m-d H:i:s');
+                @\Illuminate\Support\Facades\DB::table('call_logs')->where('id', $this->id)->update(['call_datetime' => $fmt]);
+                return $fmt;
             }
         } catch (\Throwable $e) {}
         return '—';
@@ -125,18 +180,42 @@ class CallLog extends Model
      */
     public function getDisplayDurationAttribute(): string
     {
-        if (isset($this->attributes['duration']) && $this->attributes['duration'] !== null && $this->attributes['duration'] !== '') {
+        if (isset($this->attributes['duration']) && $this->attributes['duration'] !== null && $this->attributes['duration'] !== '' && $this->attributes['duration'] !== '—') {
             $sec = (int)$this->attributes['duration'];
             return sprintf('%02d:%02d', floor($sec / 60), $sec % 60);
         }
         try {
             $cleanPhone = preg_replace('/[^0-9]/', '', $this->phone_number);
+            $subPhone = strlen($cleanPhone) >= 7 ? substr($cleanPhone, -7) : $cleanPhone;
+
+            // 1. Check Asterisk CDR table
             $latestCdr = Cdr::where('destination', $this->phone_number)
                 ->orWhere('destination', $cleanPhone)
-                ->latest('start_time')
+                ->orWhere('destination', '+' . $cleanPhone)
+                ->orWhere('destination', 'like', '%' . $subPhone)
+                ->orWhere('caller_id', $this->phone_number)
+                ->orWhere('caller_id', $cleanPhone)
+                ->orderBy('id', 'desc')
                 ->first();
+
             if ($latestCdr && isset($latestCdr->duration)) {
                 $sec = (int)$latestCdr->duration;
+                @\Illuminate\Support\Facades\DB::table('call_logs')->where('id', $this->id)->update(['duration' => $sec]);
+                return sprintf('%02d:%02d', floor($sec / 60), $sec % 60);
+            }
+
+            // 2. Check CallHistory table
+            $latestHist = CallHistory::withoutGlobalScopes()
+                ->where('callee_number', $this->phone_number)
+                ->orWhere('callee_number', $cleanPhone)
+                ->orWhere('callee_number', '+' . $cleanPhone)
+                ->orWhere('callee_number', 'like', '%' . $subPhone)
+                ->orderBy('id', 'desc')
+                ->first();
+
+            if ($latestHist && isset($latestHist->duration)) {
+                $sec = (int)$latestHist->duration;
+                @\Illuminate\Support\Facades\DB::table('call_logs')->where('id', $this->id)->update(['duration' => $sec]);
                 return sprintf('%02d:%02d', floor($sec / 60), $sec % 60);
             }
         } catch (\Throwable $e) {}

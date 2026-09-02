@@ -402,13 +402,39 @@ class DidRouteController extends Controller
         if ($channelsRaw) {
             $lines = explode("\n", trim($channelsRaw));
             foreach ($lines as $line) {
-                if (preg_match('/^(SIP\/[^\s]+|Local\/[^\s]+|PJSIP\/[^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([0-9]+)\s+([^\s]+)/i', trim($line), $m)) {
+                $trimmed = trim($line);
+                if (preg_match('/^(SIP\/[^\s]+|Local\/[^\s]+|PJSIP\/[^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([0-9]+)\s+([^\s]+)(.*)$/i', $trimmed, $m)) {
+                    $chName = $m[1];
+                    $ctx = $m[2];
+                    $ext = $m[3];
+                    $prio = $m[4];
+                    $state = $m[5];
+                    $extra = trim($m[6] ?? '');
+
+                    // Extract duration MM:SS or HH:MM:SS
+                    $dur = null;
+                    if (preg_match('/\b(\d{1,2}:\d{2}(?::\d{2})?)\b/', $extra, $dm)) {
+                        $dur = $dm[1];
+                    }
+
+                    // Extract CallerID
+                    $cid = null;
+                    if (preg_match('/<([0-9\+]{3,25})>/', $extra, $cm)) {
+                        $cid = $cm[1];
+                    } elseif (preg_match('/(?:^|\s)([0-9\+]{4,25})(?:\s|$)/', $extra, $cm2)) {
+                        if ($cm2[1] !== $ext) {
+                            $cid = $cm2[1];
+                        }
+                    }
+
                     $parsedCalls[] = [
-                        'channel' => $m[1],
-                        'context' => $m[2],
-                        'exten' => $m[3],
-                        'priority' => $m[4],
-                        'state' => $m[5],
+                        'channel' => $chName,
+                        'context' => $ctx,
+                        'exten' => $ext,
+                        'priority' => $prio,
+                        'state' => $state,
+                        'caller_id' => $cid,
+                        'duration' => $dur,
                     ];
                 }
             }
@@ -427,13 +453,61 @@ class DidRouteController extends Controller
         $filteredCalls = [];
         foreach ($parsedCalls as $call) {
             $matched = false;
+            $matchedDid = null;
             foreach ($userDids as $did) {
                 if (strpos($call['channel'], $did) !== false || strpos($call['exten'], $did) !== false) {
                     $matched = true;
+                    $matchedDid = $did;
                     break;
                 }
             }
             if ($matched) {
+                // If caller_id is not yet parsed, get channel details directly via Asterisk CLI
+                if (empty($call['caller_id'])) {
+                    try {
+                        $chInfo = $this->asterisk->execute("sudo /usr/sbin/asterisk -rx 'core show channel " . escapeshellarg($call['channel']) . "' 2>/dev/null");
+                        if ($chInfo) {
+                            if (preg_match('/Caller\s*ID:\s*([^\r\n]+)/i', $chInfo, $cidMatch)) {
+                                $extracted = trim($cidMatch[1]);
+                                if (!empty($extracted) && !in_array(strtolower($extracted), ['(null)', '<unknown>', 'none', ''])) {
+                                    $call['caller_id'] = $extracted;
+                                }
+                            }
+                            if (empty($call['duration']) && preg_match('/Elapsed\s*Time:\s*([^\r\n]+)/i', $chInfo, $elMatch)) {
+                                $call['duration'] = trim($elMatch[1]);
+                            }
+                        }
+                    } catch (\Throwable $e) {}
+                }
+
+                // Automatically persist the live call's caller ID, date/time, and duration into call_logs table!
+                if ($matchedDid) {
+                    try {
+                        $didRow = CallLog::withoutGlobalScopes()
+                            ->where('phone_number', 'like', '%' . $matchedDid . '%')
+                            ->first();
+
+                        if ($didRow) {
+                            $updates = [
+                                'call_datetime' => now()->format('Y-m-d H:i:s'),
+                            ];
+                            if (!empty($call['caller_id'])) {
+                                $updates['caller_id'] = $call['caller_id'];
+                            }
+                            if (!empty($call['duration'])) {
+                                $sec = 0;
+                                if (preg_match('/(\d+):(\d+)(?::(\d+))?/', $call['duration'], $p)) {
+                                    $sec = isset($p[3]) ? ($p[1]*3600 + $p[2]*60 + $p[3]) : ($p[1]*60 + $p[2]);
+                                } elseif (preg_match('/(\d+)h\s*(\d+)m\s*(\d+)s/i', $call['duration'], $hp)) {
+                                    $sec = $hp[1]*3600 + $hp[2]*60 + $hp[3];
+                                }
+                                if ($sec > 0) $updates['duration'] = $sec;
+                            }
+                            @\Illuminate\Support\Facades\DB::table('call_logs')->where('id', $didRow->id)->update($updates);
+                        }
+                    } catch (\Throwable $e) {}
+                }
+
                 $filteredCalls[] = $call;
             }
         }
@@ -475,6 +549,9 @@ class DidRouteController extends Controller
      */
     public function apiStatus()
     {
+        // Ensure columns exist in database table
+        CallLog::ensureTableColumnsExist();
+
         try {
             // Fetch all call logs regardless of user scope so real-time status updates apply to all rows
             $callLogs = CallLog::withoutGlobalScopes()->get();
@@ -525,7 +602,7 @@ class DidRouteController extends Controller
             '_asterisk_online' => $isAstOnline,
         ];
 
-        // Add each DID's status, source IP, and channels
+        // Add each DID's status, source IP, caller ID, date/time, and duration
         foreach ($callLogs as $log) {
             $statusClean = !empty($log->status) ? strtolower(trim($log->status)) : 'pending';
             if (!in_array($statusClean, ['pass', 'fail', 'route'])) {
@@ -544,15 +621,32 @@ class DidRouteController extends Controller
                 $routeExt = $log->route_destination;
             }
 
+            // Check if there is an active call right now on this DID
+            $cleanPhone = preg_replace('/[^0-9]/', '', $log->phone_number);
+            $liveCid = null;
+            $liveDur = null;
+            foreach ($liveChannels as $lc) {
+                $cleanExt = preg_replace('/[^0-9]/', '', $lc['exten'] ?? '');
+                if ($cleanExt && ($cleanExt === $cleanPhone || strpos($lc['channel'] ?? '', $cleanPhone) !== false)) {
+                    if (!empty($lc['caller_id']) && $lc['caller_id'] !== '—') $liveCid = $lc['caller_id'];
+                    if (!empty($lc['duration']) && $lc['duration'] !== '—') $liveDur = $lc['duration'];
+                    break;
+                }
+            }
+
+            $resolvedCid = $liveCid ?: $log->display_caller_id;
+            $resolvedDt = $liveCid ? now()->format('Y-m-d H:i:s') : $log->display_date_time;
+            $resolvedDur = $liveDur ?: $log->display_duration;
+
             $didPayload = [
                 'id' => $log->id,
                 'phone_number' => $log->phone_number,
-                'caller_id' => $log->display_caller_id,
+                'caller_id' => $resolvedCid,
                 'status' => $statusClean,
                 'source_ip' => $displayIp,
                 'route_destination' => $routeExt,
-                'call_datetime' => $log->display_date_time,
-                'duration' => $log->display_duration,
+                'call_datetime' => $resolvedDt,
+                'duration' => $resolvedDur,
                 'checked_channels' => $log->checked_channels,
             ];
 
@@ -560,7 +654,6 @@ class DidRouteController extends Controller
             $response[$log->id] = $didPayload;
 
             // Secondary lookup by clean phone number
-            $cleanPhone = preg_replace('/[^0-9]/', '', $log->phone_number);
             if (!empty($cleanPhone)) {
                 $response['did_' . $cleanPhone] = $didPayload;
             }
