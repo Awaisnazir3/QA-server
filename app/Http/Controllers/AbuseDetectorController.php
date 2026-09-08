@@ -216,16 +216,13 @@ class AbuseDetectorController extends Controller
     }
 
     /**
-     * Live stream endpoint for real-time polling
+     * Live stream endpoint for real-time polling (direct DB read)
      */
     public function stream(Request $request): JsonResponse
     {
         AbuseDid::ensureTableExists();
 
-        // Throttled scan: runs at most once every 30 seconds in the background
-        $this->detector->scanAndProcessLogs();
-
-        // Direct DB query for real-time state
+        // Direct DB query for real-time state - fast & accurate
         $dids = AbuseDid::select([
             'id', 'phone_number', 'source_trunk', 'source_ip', 'hits_count', 'status', 'first_hit_at', 'last_hit_at', 'raw_log'
         ])

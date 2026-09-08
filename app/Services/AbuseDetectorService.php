@@ -106,10 +106,10 @@ class AbuseDetectorService
             $processedCalls = [];
         }
 
-        $currentActiveChannel = null;
-        $currentActivePhone = null;
-        $currentActiveTrunk = null;
-        $currentActiveTimestamp = null;
+        $currentCallHex = null;
+        $currentPhone = null;
+        $currentTrunk = null;
+        $currentTimestamp = null;
 
         foreach ($lines as $line) {
             $trimmed = trim($line);
@@ -122,7 +122,7 @@ class AbuseDetectorService
                 $recentLogLines[] = $trimmed;
             }
 
-            // Timestamp extraction
+            // 1. Timestamp extraction
             $timestamp = null;
             if (preg_match('/^\[([A-Za-z]{3}\s+\d+\s+\d{2}:\d{2}:\d{2})\]/', $trimmed, $tsMatch)) {
                 try {
@@ -132,19 +132,15 @@ class AbuseDetectorService
                 }
             }
 
-            // Call ID e.g. [C-0000081b]
-            $callId = null;
-            if (preg_match('/\[C-([0-9a-fA-F]+)\]/', $trimmed, $cidMatch)) {
-                $callId = 'C-' . strtolower($cidMatch[1]);
+            // 2. Extract Common Hex ID (e.g. 00000099 from [C-00000099] or PJSIP/eu3.didx.net-00000099)
+            $hexId = null;
+            if (preg_match('/\[C-([0-9a-fA-F]{6,12})\]/i', $trimmed, $cidMatch)) {
+                $hexId = strtolower($cidMatch[1]);
+            } elseif (preg_match('/(?:PJSIP|SIP)\/[a-zA-Z0-9\.\-_]+-([0-9a-fA-F]{6,12})/i', $trimmed, $pjsipMatch)) {
+                $hexId = strtolower($pjsipMatch[1]);
             }
 
-            // Channel Hex ID e.g. PJSIP/eu3.didx.net-0000081e -> CHAN-0000081e
-            $chanHex = null;
-            if (preg_match('/(?:PJSIP|SIP)\/[a-zA-Z0-9\.\-_]+-([0-9a-fA-F]+)/i', $trimmed, $pjsipMatch)) {
-                $chanHex = 'CHAN-' . strtolower($pjsipMatch[1]);
-            }
-
-            // Trunk / Peer name e.g. eu3.didx.net, ca.didx.net, etc.
+            // 3. Trunk extraction
             $trunk = null;
             $knownTrunks = ['sip10.didx.net', 'eu2.didx.net', 'eu3.didx.net', 'ca.didx.net', 'us2.didx.net', 'Sip.belloceanic.com', 'sip.belloceanic.com'];
             foreach ($knownTrunks as $kt) {
@@ -153,12 +149,11 @@ class AbuseDetectorService
                     break;
                 }
             }
-
             if (!$trunk && preg_match('/(?:PJSIP|SIP)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]+|\/|:|"|\s)/i', $trimmed, $tMatch)) {
                 $trunk = $tMatch[1];
             }
 
-            // Phone / DID extraction - Capture ANY phone number / DID hitting Asterisk (2 to 32 digits)
+            // 4. Phone / DID extraction
             $phone = null;
             if (preg_match('/Executing\s+\[\s*([0-9\+]{2,32})\s*@/i', $trimmed, $pMatch)) {
                 $phone = $pMatch[1];
@@ -181,71 +176,40 @@ class AbuseDetectorService
                 $cleanPhone = null;
             }
 
-            // Update active channel context
-            if ($chanHex) {
-                $currentActiveChannel = $chanHex;
-                if ($cleanPhone) $currentActivePhone = $cleanPhone;
-                if ($trunk) $currentActiveTrunk = $trunk;
-                if ($timestamp) $currentActiveTimestamp = $timestamp;
+            // Maintain active call context for multi-line log continuity
+            if ($hexId) {
+                $currentCallHex = $hexId;
+                if ($cleanPhone) $currentPhone = $cleanPhone;
+                if ($trunk) $currentTrunk = $trunk;
+                if ($timestamp) $currentTimestamp = $timestamp;
             }
 
-            // Call event construction & correlation
-            if ($chanHex && $cleanPhone) {
-                $token = $chanHex;
+            $effectiveHex = $hexId ?: $currentCallHex;
+            $effectivePhone = $cleanPhone ?: $currentPhone;
+            $effectiveTrunk = $trunk ?: ($currentTrunk ?: 'Asterisk-Inbound');
+            $effectiveTime = $timestamp ?: ($currentTimestamp ?: now());
+
+            if (!empty($effectivePhone)) {
+                // Unified token representing the unique call instance
+                $token = $effectiveHex ? ('call_' . $effectiveHex) : ($effectivePhone . '_' . ($effectiveTime instanceof Carbon ? $effectiveTime->format('YmdHi') : date('YmdHi')));
+
                 if (!isset($callEvents[$token])) {
                     $callEvents[$token] = [
                         'token' => $token,
-                        'phone_number' => $cleanPhone,
-                        'source_trunk' => $trunk ?: 'Asterisk-Inbound',
-                        'timestamp' => $timestamp ?: ($currentActiveTimestamp ?: now()),
-                        'call_id' => $callId,
+                        'phone_number' => $effectivePhone,
+                        'source_trunk' => $effectiveTrunk,
+                        'timestamp' => $effectiveTime,
+                        'call_id' => $effectiveHex ? ('C-' . $effectiveHex) : null,
                         'raw_line' => $trimmed,
                         'status' => 'rejected',
                     ];
                 } else {
-                    if ($trunk && $callEvents[$token]['source_trunk'] === 'Asterisk-Inbound') {
-                        $callEvents[$token]['source_trunk'] = $trunk;
+                    if ($effectiveTrunk !== 'Asterisk-Inbound' && $callEvents[$token]['source_trunk'] === 'Asterisk-Inbound') {
+                        $callEvents[$token]['source_trunk'] = $effectiveTrunk;
                     }
-                    if ($callId && empty($callEvents[$token]['call_id'])) {
-                        $callEvents[$token]['call_id'] = $callId;
+                    if ($effectiveHex && empty($callEvents[$token]['call_id'])) {
+                        $callEvents[$token]['call_id'] = 'C-' . $effectiveHex;
                     }
-                    if ($timestamp) {
-                        $callEvents[$token]['timestamp'] = $timestamp;
-                    }
-                }
-            } elseif ($callId && $cleanPhone) {
-                // If this Call ID matches the active channel and same phone, correlate without creating duplicate
-                if ($currentActiveChannel && $currentActivePhone === $cleanPhone && isset($callEvents[$currentActiveChannel])) {
-                    $callEvents[$currentActiveChannel]['call_id'] = $callId;
-                    if ($timestamp) {
-                        $callEvents[$currentActiveChannel]['timestamp'] = $timestamp;
-                    }
-                } else {
-                    $token = $callId;
-                    if (!isset($callEvents[$token])) {
-                        $callEvents[$token] = [
-                            'token' => $token,
-                            'phone_number' => $cleanPhone,
-                            'source_trunk' => $currentActiveTrunk ?: 'Asterisk-Inbound',
-                            'timestamp' => $timestamp ?: now(),
-                            'call_id' => $callId,
-                            'raw_line' => $trimmed,
-                            'status' => 'rejected',
-                        ];
-                    }
-                }
-            } elseif ($cleanPhone) {
-                $token = $currentActiveChannel ?: ($cleanPhone . '_' . substr(md5($trimmed), 0, 8));
-                if (!isset($callEvents[$token])) {
-                    $callEvents[$token] = [
-                        'token' => $token,
-                        'phone_number' => $cleanPhone,
-                        'source_trunk' => $trunk ?: ($currentActiveTrunk ?: 'Asterisk-Inbound'),
-                        'timestamp' => $timestamp ?: ($currentActiveTimestamp ?: now()),
-                        'call_id' => null,
-                        'raw_line' => $trimmed,
-                        'status' => 'rejected',
-                    ];
                 }
             }
         }
