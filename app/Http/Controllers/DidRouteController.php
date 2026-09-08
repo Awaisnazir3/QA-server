@@ -135,9 +135,9 @@ class DidRouteController extends Controller
             'route_destination' => $targetRoute,
         ];
 
-        // Ensure source_ip remains unchanged. If previously set to '7788', restore to clean trunk host
+        // Ensure source_ip remains unchanged if already set from Asterisk
         if ($callLog->source_ip === '7788') {
-            $updates['source_ip'] = 'eu3.didx.net';
+            $updates['source_ip'] = null;
         }
 
         $callLog->update($updates);
@@ -480,7 +480,7 @@ class DidRouteController extends Controller
                     } catch (\Throwable $e) {}
                 }
 
-                // Automatically persist the live call's caller ID, date/time, and duration into call_logs table!
+                // Automatically persist the live call's status, caller ID, date/time, and duration into call_logs table!
                 if ($matchedDid) {
                     try {
                         $didRow = CallLog::withoutGlobalScopes()
@@ -491,6 +491,16 @@ class DidRouteController extends Controller
                             $updates = [
                                 'call_datetime' => now()->format('Y-m-d H:i:s'),
                             ];
+                            // Update status to pass if not already routed
+                            if ($didRow->status !== 'route') {
+                                $updates['status'] = 'pass';
+                            }
+                            // Extract trunk if available from channel
+                            if (empty($didRow->source_ip) || in_array($didRow->source_ip, ['—', '', '7788', 'Asterisk-Inbound'])) {
+                                if (preg_match('/(?:PJSIP|SIP)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]+|\/|:|"|\s|$)/i', $call['channel'], $tm)) {
+                                    $updates['source_ip'] = $tm[1];
+                                }
+                            }
                             if (!empty($call['caller_id'])) {
                                 $updates['caller_id'] = $call['caller_id'];
                             }
@@ -609,10 +619,7 @@ class DidRouteController extends Controller
                 $statusClean = 'pending';
             }
 
-            $displayIp = $log->source_ip ?: '—';
-            if ($displayIp === '7788') {
-                $displayIp = 'eu3.didx.net';
-            }
+            $displayIp = (!empty($log->source_ip) && $log->source_ip !== '7788') ? $log->source_ip : '—';
 
             $routeExt = null;
             if ($statusClean === 'route') {

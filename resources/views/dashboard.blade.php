@@ -165,7 +165,7 @@
                                 $status = !empty($log->status) ? strtolower(trim($log->status)) : 'pending';
                                 if (!in_array($status, ['pass', 'fail', 'route'])) $status = 'pending';
                                 $channelsDetected = $log->checked_channels !== null ? (int)$log->checked_channels : '—';
-                                $sourceIp = ($log->source_ip === '7788') ? 'eu3.didx.net' : ($log->source_ip ?? '—');
+                                $sourceIp = (!empty($log->source_ip) && $log->source_ip !== '7788') ? $log->source_ip : '—';
                                 $routeExt = ($status === 'route') ? ($log->route_destination ?? '7788') : ($log->route_destination ?? null);
                                 $callerId = $log->display_caller_id;
                                 $callDatetime = $log->display_date_time;

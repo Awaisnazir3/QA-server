@@ -46,7 +46,7 @@ $cleanDid = preg_replace('/[^0-9]/', '', $didNumber);
 // Extract Channel name from all available sources
 $channel = $agi['agi_channel'] ?? ($_SERVER['agi_channel'] ?? ($_ENV['agi_channel'] ?? (getenv('agi_channel') ?: '')));
 
-// If channel not in initial AGI headers, query Asterisk directly via AGI protocol
+// 1. Query Asterisk directly via AGI protocol if channel not present
 if (empty($channel) || $channel === 'Asterisk-Inbound') {
     @fputs(STDOUT, "GET VARIABLE CHANNEL\n");
     @fflush(STDOUT);
@@ -56,42 +56,71 @@ if (empty($channel) || $channel === 'Asterisk-Inbound') {
     }
 }
 
-if (empty($channel) || $channel === 'Asterisk-Inbound') {
+// 2. Query Asterisk directly for dynamic PJSIP endpoint
+$dynamicEndpoint = '';
+@fputs(STDOUT, "GET VARIABLE CHANNEL(endpoint)\n");
+@fflush(STDOUT);
+$resp = @fgets(STDIN);
+if ($resp && preg_match('/\((.+?)\)/', $resp, $rm) && !empty(trim($rm[1]))) {
+    $dynamicEndpoint = trim($rm[1]);
+}
+if (empty($dynamicEndpoint)) {
     @fputs(STDOUT, "GET VARIABLE PJSIP_ENDPOINT\n");
     @fflush(STDOUT);
     $resp = @fgets(STDIN);
     if ($resp && preg_match('/\((.+?)\)/', $resp, $rm) && !empty(trim($rm[1]))) {
-        $channel = trim($rm[1]);
+        $dynamicEndpoint = trim($rm[1]);
     }
 }
 
+// 3. Query Asterisk directly for dynamic remote IP / domain
+$dynamicRemoteAddr = '';
+@fputs(STDOUT, "GET VARIABLE CHANNEL(pjsip,remote_addr)\n");
+@fflush(STDOUT);
+$resp = @fgets(STDIN);
+if ($resp && preg_match('/\((.+?)\)/', $resp, $rm) && !empty(trim($rm[1]))) {
+    $dynamicRemoteAddr = trim($rm[1]);
+}
+if (empty($dynamicRemoteAddr)) {
+    @fputs(STDOUT, "GET VARIABLE CHANNEL(recvip)\n");
+    @fflush(STDOUT);
+    $resp = @fgets(STDIN);
+    if ($resp && preg_match('/\((.+?)\)/', $resp, $rm) && !empty(trim($rm[1]))) {
+        $dynamicRemoteAddr = trim($rm[1]);
+    }
+}
+if (empty($dynamicRemoteAddr)) {
+    @fputs(STDOUT, "GET VARIABLE SIPDOMAIN\n");
+    @fflush(STDOUT);
+    $resp = @fgets(STDIN);
+    if ($resp && preg_match('/\((.+?)\)/', $resp, $rm) && !empty(trim($rm[1]))) {
+        $dynamicRemoteAddr = trim($rm[1]);
+    }
+}
+
+// 4. Resolve Trunk Name / DNS dynamically from real-time channel or endpoint
 $trunkName = 'Asterisk-Inbound';
-$knownTrunks = [
-    'sip10.didx.net', 'eu2.didx.net', 'eu3.didx.net', 'ca.didx.net', 
-    'us2.didx.net', 'Sip.belloceanic.com', 'sip.belloceanic.com'
-];
 
-$allInputs = implode(' ', [
-    $channel,
-    $argv[2] ?? '',
-    $argv[1] ?? '',
-    $agi['agi_channel'] ?? '',
-    $agi['agi_request'] ?? '',
-    json_encode($agi)
-]);
-
-foreach ($knownTrunks as $kt) {
-    if (stripos($allInputs, $kt) !== false) {
-        $trunkName = $kt;
-        break;
-    }
+if (!empty($dynamicEndpoint) && !in_array($dynamicEndpoint, ['Asterisk-Inbound', '(null)', 'none', 'unknown'])) {
+    $trunkName = $dynamicEndpoint;
+} elseif (preg_match('/(?:PJSIP|SIP|IAX2|DAHDI)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]+|\/|:|"|\s|$)/i', $channel, $m)) {
+    $trunkName = $m[1];
+} elseif (isset($argv[2]) && !empty(trim($argv[2]))) {
+    $trunkName = trim($argv[2]);
 }
 
+// Fallback search in all AGI inputs if still generic
 if ($trunkName === 'Asterisk-Inbound') {
-    if (preg_match('/(?:PJSIP|SIP)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]+|\/|:|"|\s|$)/i', $allInputs, $m)) {
+    $allInputs = implode(' ', [
+        $channel,
+        $argv[2] ?? '',
+        $argv[1] ?? '',
+        $agi['agi_channel'] ?? '',
+        $agi['agi_request'] ?? '',
+        json_encode($agi)
+    ]);
+    if (preg_match('/(?:PJSIP|SIP|IAX2)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]+|\/|:|"|\s|$)/i', $allInputs, $m)) {
         $trunkName = $m[1];
-    } elseif (isset($argv[2]) && !empty(trim($argv[2]))) {
-        $trunkName = trim($argv[2]);
     }
 }
 
@@ -99,20 +128,23 @@ if ($trunkName === 'Asterisk-Inbound') {
 if ($trunkName === 'Asterisk-Inbound' && !empty($cleanDid) && PHP_OS_FAMILY !== 'Windows') {
     $escaped = escapeshellarg($cleanDid);
     $grepOut = @shell_exec("grep -F {$escaped} /var/log/asterisk/messages 2>/dev/null | tail -n 10");
-    if ($grepOut) {
-        foreach ($knownTrunks as $kt) {
-            if (stripos($grepOut, $kt) !== false) {
-                $trunkName = $kt;
-                break;
-            }
-        }
-        if ($trunkName === 'Asterisk-Inbound' && preg_match('/(?:PJSIP|SIP)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]+|\/|:|"|\s)/i', $grepOut, $gm)) {
-            $trunkName = $gm[1];
-        }
+    if ($grepOut && preg_match('/(?:PJSIP|SIP|IAX2)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]+|\/|:|"|\s)/i', $grepOut, $gm)) {
+        $trunkName = $gm[1];
     }
 }
 
-// Resolve Source IP
+// 5. Resolve Source IP dynamically
+$sourceIp = '';
+if (!empty($dynamicRemoteAddr)) {
+    if (preg_match('/^([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/', $dynamicRemoteAddr, $ipM)) {
+        $sourceIp = $ipM[1];
+    }
+}
+
+if (empty($sourceIp) && filter_var($trunkName, FILTER_VALIDATE_IP)) {
+    $sourceIp = $trunkName;
+}
+
 $trunkIpMap = [
     'sip10.didx.net' => '198.211.99.232',
     'eu2.didx.net' => '178.62.98.165',
@@ -125,21 +157,24 @@ $trunkIpMap = [
     'VPL-Switch' => '104.131.49.119',
 ];
 
-$sourceIp = '';
-if (isset($trunkIpMap[$trunkName])) {
-    $sourceIp = $trunkIpMap[$trunkName];
-} elseif (filter_var($trunkName, FILTER_VALIDATE_IP)) {
-    $sourceIp = $trunkName;
-} elseif ($trunkName !== 'Asterisk-Inbound') {
-    $resolved = @gethostbyname($trunkName);
-    if ($resolved && $resolved !== $trunkName && filter_var($resolved, FILTER_VALIDATE_IP)) {
-        $sourceIp = $resolved;
+if (empty($sourceIp)) {
+    if (isset($trunkIpMap[$trunkName])) {
+        $sourceIp = $trunkIpMap[$trunkName];
+    } elseif ($trunkName !== 'Asterisk-Inbound') {
+        $resolved = @gethostbyname($trunkName);
+        if ($resolved && $resolved !== $trunkName && filter_var($resolved, FILTER_VALIDATE_IP)) {
+            $sourceIp = $resolved;
+        }
     }
 }
 
 $callId = $agi['agi_uniqueid'] ?? ($_SERVER['agi_uniqueid'] ?? null);
+$callerId = $agi['agi_callerid'] ?? ($agi['agi_calleridname'] ?? '');
+if (in_array(strtolower(trim($callerId)), ['<unknown>', '(null)', 'none', 'unknown', '—', ''])) {
+    $callerId = '';
+}
 
-// 1. REAL-TIME LOGGING TO ABUSE DIDS TABLE
+// 1. REAL-TIME LOGGING TO ABUSE DIDS TABLE & CALL_LOGS TABLE
 if (!empty($cleanDid) && strlen($cleanDid) >= 2) {
     try {
         $db = @new mysqli($dbHost, $dbUser, $dbPass, $dbName);
@@ -148,8 +183,9 @@ if (!empty($cleanDid) && strlen($cleanDid) >= 2) {
             $escapedTrunk = $db->real_escape_string($trunkName);
             $escapedIp = $db->real_escape_string($sourceIp);
             $escapedCallId = $callId ? "'" . $db->real_escape_string($callId) . "'" : "NULL";
+            $escapedCallerId = $db->real_escape_string($callerId);
 
-            // Atomic Insert / Increment on duplicate phone_number with updated source trunk/IP on last hit
+            // A. Atomic Insert / Increment in abuse_dids table
             $query = "INSERT INTO abuse_dids 
                 (phone_number, source_trunk, source_ip, hits_count, status, first_hit_at, last_hit_at, last_call_id, created_at, updated_at) 
                 VALUES ('{$escapedDid}', '{$escapedTrunk}', '{$escapedIp}', 1, 'rejected', NOW(), NOW(), {$escapedCallId}, NOW(), NOW())
@@ -162,6 +198,30 @@ if (!empty($cleanDid) && strlen($cleanDid) >= 2) {
                     updated_at = NOW()";
 
             @$db->query($query);
+
+            // B. Update status to PASS and update source_ip / caller_id in call_logs table (DID Routes Tab)
+            $updateCallLogQuery = "UPDATE call_logs 
+                SET 
+                    status = IF(status = 'route', 'route', 'pass'),
+                    source_ip = CASE 
+                        WHEN '{$escapedTrunk}' != '' AND '{$escapedTrunk}' != 'Asterisk-Inbound' THEN '{$escapedTrunk}'
+                        WHEN source_ip IS NULL OR source_ip = '' OR source_ip = '—' THEN '{$escapedTrunk}'
+                        ELSE source_ip
+                    END,
+                    caller_id = CASE 
+                        WHEN '{$escapedCallerId}' != '' THEN '{$escapedCallerId}'
+                        ELSE caller_id
+                    END,
+                    call_datetime = NOW()
+                WHERE 
+                    phone_number = '{$escapedDid}' 
+                    OR phone_number = '+{$escapedDid}' 
+                    OR phone_number = '00{$escapedDid}'
+                    OR REPLACE(REPLACE(phone_number, '+', ''), ' ', '') = '{$escapedDid}'
+                    OR phone_number LIKE '%{$escapedDid}%'";
+
+            @$db->query($updateCallLogQuery);
+
             @$db->close();
         }
     } catch (\Throwable $e) {
