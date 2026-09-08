@@ -19,7 +19,13 @@ class DialerController extends Controller
         $routes = CallLog::where('status', 'pass')->get();
         
         // Get recent call history
-        $callHistory = CallHistory::orderBy('created_at', 'desc')->limit(50)->get();
+        $callHistory = collect();
+        try {
+            CallHistory::ensureTableExists();
+            $callHistory = CallHistory::orderBy('created_at', 'desc')->limit(50)->get();
+        } catch (\Throwable $e) {
+            $callHistory = collect();
+        }
 
         return view('operations.dialer', [
             'routes' => $routes,

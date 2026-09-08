@@ -16,12 +16,32 @@ class ReportController extends Controller
         $query = Cdr::query();
 
         // Scope CDR to only numbers associated with the authenticated user
-        $userDids = \App\Models\CallLog::pluck('phone_number')->toArray();
-        $userDialerNumbers = \App\Models\CallHistory::pluck('callee_number')
-            ->merge(\App\Models\CallHistory::pluck('caller_id'))
-            ->unique()
-            ->toArray();
-        $allUserNumbers = array_unique(array_merge($userDids, $userDialerNumbers));
+        $userDids = [];
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('call_logs') && \Illuminate\Support\Facades\Schema::hasColumn('call_logs', 'phone_number')) {
+                $userDids = \App\Models\CallLog::pluck('phone_number')->filter()->toArray();
+            }
+        } catch (\Throwable $e) {
+            $userDids = [];
+        }
+
+        $userDialerNumbers = [];
+        try {
+            \App\Models\CallHistory::ensureTableExists();
+            if (\Illuminate\Support\Facades\Schema::hasTable('call_histories')) {
+                $callees = \Illuminate\Support\Facades\Schema::hasColumn('call_histories', 'callee_number')
+                    ? \App\Models\CallHistory::pluck('callee_number')->filter()->toArray()
+                    : [];
+                $callers = \Illuminate\Support\Facades\Schema::hasColumn('call_histories', 'caller_id')
+                    ? \App\Models\CallHistory::pluck('caller_id')->filter()->toArray()
+                    : [];
+                $userDialerNumbers = array_merge($callees, $callers);
+            }
+        } catch (\Throwable $e) {
+            $userDialerNumbers = [];
+        }
+
+        $allUserNumbers = array_values(array_unique(array_merge($userDids, $userDialerNumbers)));
 
         // If the user has no numbers, we pass an empty array to prevent empty whereIn (which matches everything in some setups)
         if (empty($allUserNumbers)) {
