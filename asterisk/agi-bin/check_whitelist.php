@@ -174,7 +174,7 @@ if (in_array(strtolower(trim($callerId)), ['<unknown>', '(null)', 'none', 'unkno
     $callerId = '';
 }
 
-// 1. REAL-TIME LOGGING TO ABUSE DIDS TABLE & CALL_LOGS TABLE
+// 1. REAL-TIME LOGGING TO ABUSE DIDS TABLE & CALL_LOGS TABLE & DIALPLAN ROUTING
 if (!empty($cleanDid) && strlen($cleanDid) >= 2) {
     try {
         $db = @new mysqli($dbHost, $dbUser, $dbPass, $dbName);
@@ -185,13 +185,39 @@ if (!empty($cleanDid) && strlen($cleanDid) >= 2) {
             $escapedCallId = $callId ? "'" . $db->real_escape_string($callId) . "'" : "NULL";
             $escapedCallerId = $db->real_escape_string($callerId);
 
-            // A. Atomic Insert / Increment in abuse_dids table
+            // A. Check if DID is configured with ROUTE status or 7788 destination in call_logs
+            $isRouted = false;
+            $routeDestination = '7788';
+            $chkQuery = "SELECT status, route_destination FROM call_logs 
+                         WHERE phone_number = '{$escapedDid}' 
+                            OR phone_number = '+{$escapedDid}' 
+                            OR phone_number = '00{$escapedDid}' 
+                            OR REPLACE(REPLACE(phone_number, '+', ''), ' ', '') = '{$escapedDid}' 
+                            OR phone_number LIKE '%{$escapedDid}%' 
+                         ORDER BY (CASE WHEN status = 'route' THEN 1 WHEN status = 'pass' THEN 2 ELSE 3 END) ASC 
+                         LIMIT 1";
+            $chkRes = @$db->query($chkQuery);
+            if ($chkRes && $row = $chkRes->fetch_assoc()) {
+                $statusCheck = strtolower(trim($row['status'] ?? ''));
+                if (!empty($row['route_destination'])) {
+                    $routeDestination = trim($row['route_destination']);
+                }
+                if ($statusCheck === 'route' || !empty($row['route_destination'])) {
+                    $isRouted = true;
+                }
+            }
+
+            $abuseStatus = $isRouted ? 'routed' : 'rejected';
+            $escapedRouteDest = $db->real_escape_string($routeDestination);
+
+            // B. Atomic Insert / Increment in abuse_dids table
             $query = "INSERT INTO abuse_dids 
                 (phone_number, source_trunk, source_ip, hits_count, status, first_hit_at, last_hit_at, last_call_id, created_at, updated_at) 
-                VALUES ('{$escapedDid}', '{$escapedTrunk}', '{$escapedIp}', 1, 'rejected', NOW(), NOW(), {$escapedCallId}, NOW(), NOW())
+                VALUES ('{$escapedDid}', '{$escapedTrunk}', '{$escapedIp}', 1, '{$abuseStatus}', NOW(), NOW(), {$escapedCallId}, NOW(), NOW())
                 ON DUPLICATE KEY UPDATE 
                     hits_count = hits_count + 1, 
                     last_hit_at = NOW(), 
+                    status = IF('{$abuseStatus}' = 'routed', 'routed', status),
                     source_trunk = IF(VALUES(source_trunk) != '' AND VALUES(source_trunk) != 'Asterisk-Inbound', VALUES(source_trunk), source_trunk),
                     source_ip = IF(VALUES(source_ip) != '', VALUES(source_ip), source_ip),
                     last_call_id = IF(VALUES(last_call_id) IS NOT NULL, VALUES(last_call_id), last_call_id),
@@ -199,10 +225,12 @@ if (!empty($cleanDid) && strlen($cleanDid) >= 2) {
 
             @$db->query($query);
 
-            // B. Update status to PASS and update source_ip / caller_id in call_logs table (DID Routes Tab)
+            // C. Update status to ROUTE (if routed) or PASS (if not routed) in call_logs table (DID Routes Tab)
+            $callLogStatus = $isRouted ? 'route' : 'pass';
             $updateCallLogQuery = "UPDATE call_logs 
                 SET 
-                    status = IF(status = 'route', 'route', 'pass'),
+                    status = '{$callLogStatus}',
+                    route_destination = IF('{$callLogStatus}' = 'route', '{$escapedRouteDest}', route_destination),
                     source_ip = CASE 
                         WHEN '{$escapedTrunk}' != '' AND '{$escapedTrunk}' != 'Asterisk-Inbound' THEN '{$escapedTrunk}'
                         WHEN source_ip IS NULL OR source_ip = '' OR source_ip = '—' THEN '{$escapedTrunk}'
@@ -222,7 +250,7 @@ if (!empty($cleanDid) && strlen($cleanDid) >= 2) {
 
             @$db->query($updateCallLogQuery);
 
-            // C. Update status to PASS and update source_ip in bulk_dids table (Bulk Test Tab)
+            // D. Update status to PASS and update source_ip in bulk_dids table (Bulk Test Tab)
             $updateBulkDidQuery = "UPDATE bulk_dids 
                 SET 
                     status = 'pass',
@@ -242,6 +270,65 @@ if (!empty($cleanDid) && strlen($cleanDid) >= 2) {
                     OR phone_number LIKE '%{$escapedDid}%'";
 
             @$db->query($updateBulkDidQuery);
+
+            // E. Pass Channel Variables back to Asterisk Dialplan
+            if ($isRouted) {
+                @fputs(STDOUT, "SET VARIABLE WHITELIST_STATUS \"ALLOW\"\n");
+                @fflush(STDOUT);
+                @fgets(STDIN);
+
+                @fputs(STDOUT, "SET VARIABLE WHITELIST \"ALLOW\"\n");
+                @fflush(STDOUT);
+                @fgets(STDIN);
+
+                @fputs(STDOUT, "SET VARIABLE ROUTE_STATUS \"ALLOW\"\n");
+                @fflush(STDOUT);
+                @fgets(STDIN);
+
+                @fputs(STDOUT, "SET VARIABLE STATUS \"ALLOW\"\n");
+                @fflush(STDOUT);
+                @fgets(STDIN);
+
+                @fputs(STDOUT, "SET VARIABLE ALLOW \"1\"\n");
+                @fflush(STDOUT);
+                @fgets(STDIN);
+
+                @fputs(STDOUT, "SET VARIABLE IS_ROUTED \"1\"\n");
+                @fflush(STDOUT);
+                @fgets(STDIN);
+
+                @fputs(STDOUT, "SET VARIABLE ROUTE_DESTINATION \"{$routeDestination}\"\n");
+                @fflush(STDOUT);
+                @fgets(STDIN);
+
+                @fputs(STDOUT, "SET VARIABLE DIAL_DESTINATION \"{$routeDestination}\"\n");
+                @fflush(STDOUT);
+                @fgets(STDIN);
+
+                @fputs(STDOUT, "SET VARIABLE ROUTE \"{$routeDestination}\"\n");
+                @fflush(STDOUT);
+                @fgets(STDIN);
+
+                @fputs(STDOUT, "SET VARIABLE DESTINATION \"{$routeDestination}\"\n");
+                @fflush(STDOUT);
+                @fgets(STDIN);
+            } else {
+                @fputs(STDOUT, "SET VARIABLE WHITELIST_STATUS \"REJECT\"\n");
+                @fflush(STDOUT);
+                @fgets(STDIN);
+
+                @fputs(STDOUT, "SET VARIABLE WHITELIST \"REJECT\"\n");
+                @fflush(STDOUT);
+                @fgets(STDIN);
+
+                @fputs(STDOUT, "SET VARIABLE ALLOW \"0\"\n");
+                @fflush(STDOUT);
+                @fgets(STDIN);
+
+                @fputs(STDOUT, "SET VARIABLE IS_ROUTED \"0\"\n");
+                @fflush(STDOUT);
+                @fgets(STDIN);
+            }
 
             @$db->close();
         }
