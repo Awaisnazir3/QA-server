@@ -14,6 +14,7 @@ class AbuseDid extends Model
         'user_id',
         'phone_number',
         'source_trunk',
+        'source_ip',
         'hits_count',
         'status',
         'first_hit_at',
@@ -51,6 +52,7 @@ class AbuseDid extends Model
                     $table->integer('user_id')->nullable();
                     $table->string('phone_number', 50)->unique();
                     $table->string('source_trunk', 100)->nullable();
+                    $table->string('source_ip', 100)->nullable();
                     $table->unsignedInteger('hits_count')->default(1);
                     $table->string('status', 30)->default('rejected');
                     $table->timestamp('first_hit_at')->nullable();
@@ -63,6 +65,14 @@ class AbuseDid extends Model
                     $table->index('last_hit_at');
                 });
             } else {
+                // Ensure source_ip column exists
+                if (!Schema::hasColumn('abuse_dids', 'source_ip')) {
+                    try {
+                        Schema::table('abuse_dids', function (Blueprint $table) {
+                            $table->string('source_ip', 100)->nullable()->after('source_trunk');
+                        });
+                    } catch (\Throwable $e) {}
+                }
                 // Ensure duplicate rows are consolidated if any exist
                 try {
                     $duplicates = \Illuminate\Support\Facades\DB::select("

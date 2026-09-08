@@ -110,19 +110,21 @@
                 <table class="w-full table-fixed text-xs border-collapse text-left select-text">
                     <colgroup>
                         <col class="w-[4%]">
-                        <col class="w-[20%]">
-                        <col class="w-[20%]">
-                        <col class="w-[10%]">
-                        <col class="w-[12%]">
-                        <col class="w-[15%]">
+                        <col class="w-[18%]">
+                        <col class="w-[16%]">
                         <col class="w-[14%]">
+                        <col class="w-[8%]">
+                        <col class="w-[10%]">
+                        <col class="w-[13%]">
+                        <col class="w-[12%]">
                         <col class="w-[5%]">
                     </colgroup>
                     <thead class="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 shadow-xs">
                         <tr class="h-8 text-[11px] font-mono font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                             <th class="py-2 px-3 text-center border-r border-slate-200/70 dark:border-slate-700/70">#</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">DID / Target Number</th>
-                            <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Source IP / DNS</th>
+                            <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Source Trunk / DNS</th>
+                            <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Source IP</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70 text-center">Hits</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70 text-center">Status</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">First Detected</th>
@@ -159,19 +161,21 @@
                 <table class="w-full table-fixed text-xs border-collapse text-left font-mono select-text">
                     <colgroup>
                         <col class="w-[4%]">
-                        <col class="w-[20%]">
-                        <col class="w-[20%]">
-                        <col class="w-[10%]">
-                        <col class="w-[12%]">
-                        <col class="w-[15%]">
+                        <col class="w-[18%]">
+                        <col class="w-[16%]">
                         <col class="w-[14%]">
+                        <col class="w-[8%]">
+                        <col class="w-[10%]">
+                        <col class="w-[13%]">
+                        <col class="w-[12%]">
                         <col class="w-[5%]">
                     </colgroup>
                     <thead class="sticky top-0 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                         <tr class="h-8">
                             <th class="py-2 px-3 text-center border-r border-slate-200/70 dark:border-slate-700/70">Rank</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">DID / Target Number</th>
-                            <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Source IP / DNS</th>
+                            <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Source Trunk / DNS</th>
+                            <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Source IP</th>
                             <th class="py-2 px-3 text-center border-r border-slate-200/70 dark:border-slate-700/70">Hits Count</th>
                             <th class="py-2 px-3 text-center border-r border-slate-200/70 dark:border-slate-700/70">Status</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">First Hit</th>
@@ -181,6 +185,9 @@
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-800" id="top5TableBody">
                         @forelse($top5 as $tIdx => $tDid)
+                            @php
+                                $tSourceInfo = \App\Http\Controllers\AbuseDetectorController::resolveSourceInfo($tDid->source_trunk, $tDid->raw_log, $tDid->source_ip);
+                            @endphp
                             <tr class="h-[34px] border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/75 dark:hover:bg-slate-800/50 transition-colors" id="top5-row-{{ $tDid->phone_number }}">
                                 <td class="py-2 px-3 text-center font-bold text-[var(--ink3)] border-r border-slate-100 dark:border-slate-800/60">#{{ $tIdx + 1 }}</td>
                                 <td class="py-2 px-3 font-mono tracking-tight font-semibold text-[var(--ink1)] border-r border-slate-100 dark:border-slate-800/60 truncate">
@@ -189,10 +196,17 @@
                                         <i class="fa-regular fa-copy text-[10px]"></i>
                                     </button>
                                 </td>
-                                <td class="py-2 px-3 text-[var(--ink2)] border-r border-slate-100 dark:border-slate-800/60 truncate">
-                                    <div class="flex flex-col leading-tight">
-                                        <span class="font-bold text-[var(--ink1)]">{{ $tDid->source_trunk ?: 'Asterisk-Inbound' }}</span>
-                                    </div>
+                                <td class="py-2 px-3 text-[var(--ink2)] border-r border-slate-100 dark:border-slate-800/60 truncate" id="top5-trunk-{{ $tDid->phone_number }}">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                                        <i class="fa-solid fa-server text-[9px]"></i>
+                                        <span>{{ $tSourceInfo['source_dns'] }}</span>
+                                    </span>
+                                </td>
+                                <td class="py-2 px-3 font-mono text-[11px] text-[var(--ink2)] border-r border-slate-100 dark:border-slate-800/60 truncate" id="top5-ip-{{ $tDid->phone_number }}">
+                                    <span class="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-[var(--surface2)] border border-[var(--border)]">
+                                        <i class="fa-solid fa-network-wired text-[9px] text-slate-400"></i>
+                                        <span>{{ $tSourceInfo['source_ip'] }}</span>
+                                    </span>
                                 </td>
                                 <td class="py-2 px-3 text-center font-bold text-rose-500 border-r border-slate-100 dark:border-slate-800/60" id="top5-hits-{{ $tDid->phone_number }}">{{ $tDid->hits_count }}</td>
                                 <td class="py-2 px-3 text-center border-r border-slate-100 dark:border-slate-800/60">
@@ -212,7 +226,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="py-12 text-center text-xs font-mono text-[var(--ink3)]">No abuse hits detected yet.</td>
+                                <td colspan="9" class="py-12 text-center text-xs font-mono text-[var(--ink3)]">No abuse hits detected yet.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -391,7 +405,7 @@ function renderTop5(top5) {
     var tbody = document.getElementById('top5TableBody');
     if (!tbody) return;
     if (!top5 || top5.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="py-12 text-center text-xs font-mono text-[var(--ink3)]">No abuse hits detected yet.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="py-12 text-center text-xs font-mono text-[var(--ink3)]">No abuse hits detected yet.</td></tr>';
         return;
     }
 
@@ -402,8 +416,8 @@ function renderTop5(top5) {
         var phone = String(did.phone_number);
         var hits = parseInt(did.hits_count) || 1;
         var deleteUrl = '{{ url("/abuse-dids") }}/' + did.id;
-        var trunkName = did.source_trunk || 'Asterisk-Inbound';
-        var ipStr = (did.source_ip && did.source_ip !== '—' && did.source_ip !== trunkName) ? did.source_ip : '';
+        var trunkName = did.source_dns || did.source_trunk || '—';
+        var ipStr = did.source_ip || '—';
 
         html += `
             <tr class="h-[34px] hover:bg-[var(--hover)] transition-colors" id="top5-row-${escapeHtml(phone)}">
@@ -414,11 +428,17 @@ function renderTop5(top5) {
                         <i class="fa-regular fa-copy text-[10px]"></i>
                     </button>
                 </td>
-                <td class="px-3 text-[var(--ink2)]">
-                    <div class="flex flex-col leading-tight">
-                        <span class="font-bold text-[var(--ink1)]">${escapeHtml(trunkName)}</span>
-                        ${ipStr ? `<span class="text-[10px] text-slate-400 font-mono">${escapeHtml(ipStr)}</span>` : ''}
-                    </div>
+                <td class="px-3 text-[var(--ink2)] truncate">
+                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                        <i class="fa-solid fa-server text-[9px]"></i>
+                        <span>${escapeHtml(trunkName)}</span>
+                    </span>
+                </td>
+                <td class="px-3 font-mono text-[11px] text-[var(--ink2)] truncate">
+                    <span class="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-[var(--surface2)] border border-[var(--border)]">
+                        <i class="fa-solid fa-network-wired text-[9px] text-slate-400"></i>
+                        <span>${escapeHtml(ipStr)}</span>
+                    </span>
                 </td>
                 <td class="px-3 text-center font-bold text-rose-500" id="top5-hits-${escapeHtml(phone)}">${hits}</td>
                 <td class="px-3 text-center">
@@ -456,8 +476,9 @@ function applyFilterAndPaginate() {
         filteredDidsData = allDidsData.filter(function(item) {
             var phone = String(item.phone_number || '').toLowerCase();
             var trunk = String(item.source_trunk || '').toLowerCase();
+            var dns = String(item.source_dns || '').toLowerCase();
             var ip = String(item.source_ip || '').toLowerCase();
-            return phone.includes(query) || trunk.includes(query) || ip.includes(query);
+            return phone.includes(query) || trunk.includes(query) || dns.includes(query) || ip.includes(query);
         });
     }
 
@@ -470,7 +491,7 @@ function renderCurrentPage() {
     if (!tbody) return;
 
     if (filteredDidsData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="py-12 text-center text-xs font-mono text-[var(--ink3)]"><i class="fa-solid fa-shield-halved text-lg mb-2 block opacity-40"></i>No matching abused DIDs found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="py-12 text-center text-xs font-mono text-[var(--ink3)]"><i class="fa-solid fa-shield-halved text-lg mb-2 block opacity-40"></i>No matching abused DIDs found.</td></tr>';
         document.getElementById('paginationInfo').innerText = 'Showing 0 to 0 of 0 detected DIDs';
         return;
     }
@@ -495,8 +516,8 @@ function renderCurrentPage() {
         var phone = String(did.phone_number);
         var hits = parseInt(did.hits_count) || 1;
         var deleteUrl = '{{ url("/abuse-dids") }}/' + did.id;
-        var trunkName = did.source_trunk || 'Asterisk-Inbound';
-        var ipStr = (did.source_ip && did.source_ip !== '—' && did.source_ip !== trunkName) ? did.source_ip : '';
+        var trunkName = did.source_dns || did.source_trunk || '—';
+        var ipStr = did.source_ip || '—';
 
         html += `
             <tr class="h-[34px] border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/75 dark:hover:bg-slate-800/50 transition-colors">
@@ -508,10 +529,16 @@ function renderCurrentPage() {
                     </button>
                 </td>
                 <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 text-[var(--ink2)] truncate">
-                    <div class="flex flex-col leading-tight">
-                        <span class="font-bold text-[var(--ink1)]">${escapeHtml(trunkName)}</span>
-                        ${ipStr ? `<span class="text-[10px] text-slate-400 font-mono">${escapeHtml(ipStr)}</span>` : ''}
-                    </div>
+                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                        <i class="fa-solid fa-server text-[9px]"></i>
+                        <span>${escapeHtml(trunkName)}</span>
+                    </span>
+                </td>
+                <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 font-mono text-[11px] text-[var(--ink2)] truncate">
+                    <span class="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-[var(--surface2)] border border-[var(--border)]">
+                        <i class="fa-solid fa-network-wired text-[9px] text-slate-400"></i>
+                        <span>${escapeHtml(ipStr)}</span>
+                    </span>
                 </td>
                 <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 text-center font-bold text-rose-500">${hits}</td>
                 <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 text-center">

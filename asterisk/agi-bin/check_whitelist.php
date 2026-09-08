@@ -45,7 +45,7 @@ $cleanDid = preg_replace('/[^0-9]/', '', $didNumber);
 
 // Extract Trunk name from channel (e.g. PJSIP/eu3.didx.net-00000711 -> eu3.didx.net)
 $trunkName = 'Asterisk-Inbound';
-$channel = $agi['agi_channel'] ?? ($_SERVER['agi_channel'] ?? '');
+$channel = $agi['agi_channel'] ?? ($_SERVER['agi_channel'] ?? ($_ENV['agi_channel'] ?? (getenv('agi_channel') ?: '')));
 $knownTrunks = ['sip10.didx.net', 'eu2.didx.net', 'eu3.didx.net', 'ca.didx.net', 'us2.didx.net', 'Sip.belloceanic.com', 'sip.belloceanic.com'];
 
 foreach ($knownTrunks as $kt) {
@@ -63,6 +63,17 @@ if ($trunkName === 'Asterisk-Inbound') {
     }
 }
 
+// Resolve Source IP
+$sourceIp = '';
+if (filter_var($trunkName, FILTER_VALIDATE_IP)) {
+    $sourceIp = $trunkName;
+} elseif ($trunkName !== 'Asterisk-Inbound') {
+    $resolved = @gethostbyname($trunkName);
+    if ($resolved && $resolved !== $trunkName && filter_var($resolved, FILTER_VALIDATE_IP)) {
+        $sourceIp = $resolved;
+    }
+}
+
 $callId = $agi['agi_uniqueid'] ?? ($_SERVER['agi_uniqueid'] ?? null);
 
 // 1. REAL-TIME LOGGING TO ABUSE DIDS TABLE
@@ -72,16 +83,18 @@ if (!empty($cleanDid) && strlen($cleanDid) >= 2) {
         if ($db && !$db->connect_error) {
             $escapedDid = $db->real_escape_string($cleanDid);
             $escapedTrunk = $db->real_escape_string($trunkName);
+            $escapedIp = $db->real_escape_string($sourceIp);
             $escapedCallId = $callId ? "'" . $db->real_escape_string($callId) . "'" : "NULL";
 
-            // Atomic Insert / Increment on duplicate phone_number
+            // Atomic Insert / Increment on duplicate phone_number with updated source trunk/IP on last hit
             $query = "INSERT INTO abuse_dids 
-                (phone_number, source_trunk, hits_count, status, first_hit_at, last_hit_at, last_call_id, created_at, updated_at) 
-                VALUES ('{$escapedDid}', '{$escapedTrunk}', 1, 'rejected', NOW(), NOW(), {$escapedCallId}, NOW(), NOW())
+                (phone_number, source_trunk, source_ip, hits_count, status, first_hit_at, last_hit_at, last_call_id, created_at, updated_at) 
+                VALUES ('{$escapedDid}', '{$escapedTrunk}', '{$escapedIp}', 1, 'rejected', NOW(), NOW(), {$escapedCallId}, NOW(), NOW())
                 ON DUPLICATE KEY UPDATE 
                     hits_count = hits_count + 1, 
                     last_hit_at = NOW(), 
                     source_trunk = IF(VALUES(source_trunk) != '' AND VALUES(source_trunk) != 'Asterisk-Inbound', VALUES(source_trunk), source_trunk),
+                    source_ip = IF(VALUES(source_ip) != '', VALUES(source_ip), source_ip),
                     last_call_id = IF(VALUES(last_call_id) IS NOT NULL, VALUES(last_call_id), last_call_id),
                     updated_at = NOW()";
 

@@ -282,11 +282,27 @@ class AbuseDetectorService
 
                 $abuseDid = $existingDids->get($phone);
 
+                // Resolve IP address from trunk if available
+                $resolvedIp = null;
+                if (!empty($trunk) && $trunk !== 'Asterisk-Inbound') {
+                    if (filter_var($trunk, FILTER_VALIDATE_IP)) {
+                        $resolvedIp = $trunk;
+                    } else {
+                        $r = @gethostbyname($trunk);
+                        if ($r && $r !== $trunk && filter_var($r, FILTER_VALIDATE_IP)) {
+                            $resolvedIp = $r;
+                        }
+                    }
+                }
+
                 if ($abuseDid) {
                     $abuseDid->hits_count = ($abuseDid->hits_count ?? 1) + 1;
                     $abuseDid->last_hit_at = $hitTime;
                     if (!empty($trunk) && $trunk !== 'Asterisk-Inbound') {
                         $abuseDid->source_trunk = $trunk;
+                        if ($resolvedIp) {
+                            $abuseDid->source_ip = $resolvedIp;
+                        }
                     }
                     if (!empty($event['call_id'])) {
                         $abuseDid->last_call_id = $event['call_id'];
@@ -297,6 +313,7 @@ class AbuseDetectorService
                     $abuseDid = AbuseDid::create([
                         'phone_number' => $phone,
                         'source_trunk' => $trunk,
+                        'source_ip' => $resolvedIp,
                         'hits_count' => 1,
                         'status' => 'rejected',
                         'first_hit_at' => $hitTime,
@@ -314,6 +331,7 @@ class AbuseDetectorService
                     'phone_number' => $abuseDid->phone_number,
                     'hits_count' => (int) $abuseDid->hits_count,
                     'source_trunk' => $abuseDid->source_trunk,
+                    'source_ip' => $abuseDid->source_ip,
                     'last_hit_at' => $abuseDid->last_hit_at ? $abuseDid->last_hit_at->format('Y-m-d H:i:s') : '',
                     'status' => $abuseDid->status,
                 ];

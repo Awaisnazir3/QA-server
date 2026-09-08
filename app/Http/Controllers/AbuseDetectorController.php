@@ -30,7 +30,7 @@ class AbuseDetectorController extends Controller
     /**
      * Resolve source IP and trunk details
      */
-    public static function resolveSourceInfo(?string $sourceTrunk, ?string $rawLog = null): array
+    public static function resolveSourceInfo(?string $sourceTrunk, ?string $rawLog = null, ?string $storedIp = null): array
     {
         $trunk = $sourceTrunk;
 
@@ -49,21 +49,24 @@ class AbuseDetectorController extends Controller
             $trunk = 'Asterisk-Inbound';
         }
 
-        $sourceIp = null;
-        if (filter_var($trunk, FILTER_VALIDATE_IP)) {
-            $sourceIp = $trunk;
-        } elseif ($trunk !== 'Asterisk-Inbound') {
-            $resolved = @gethostbyname($trunk);
-            if ($resolved && $resolved !== $trunk && filter_var($resolved, FILTER_VALIDATE_IP)) {
-                $sourceIp = $resolved;
-            } else {
+        $sourceIp = $storedIp;
+        if (empty($sourceIp) || $sourceIp === '—') {
+            if (filter_var($trunk, FILTER_VALIDATE_IP)) {
                 $sourceIp = $trunk;
+            } elseif ($trunk !== 'Asterisk-Inbound') {
+                $resolved = @gethostbyname($trunk);
+                if ($resolved && $resolved !== $trunk && filter_var($resolved, FILTER_VALIDATE_IP)) {
+                    $sourceIp = $resolved;
+                } else {
+                    $sourceIp = $trunk;
+                }
             }
         }
 
         return [
-            'source_ip'    => $sourceIp,
+            'source_ip'    => $sourceIp ?: '—',
             'source_trunk' => $trunk,
+            'source_dns'   => $trunk !== 'Asterisk-Inbound' ? $trunk : '—',
             'source_host'  => $trunk !== 'Asterisk-Inbound' ? $trunk : null,
         ];
     }
@@ -74,13 +77,14 @@ class AbuseDetectorController extends Controller
     protected function formatDids($dids)
     {
         return $dids->map(function ($item) {
-            $sourceInfo = self::resolveSourceInfo($item->source_trunk, $item->raw_log);
+            $sourceInfo = self::resolveSourceInfo($item->source_trunk, $item->raw_log, $item->source_ip ?? null);
 
             return [
                 'id'             => $item->id,
                 'phone_number'   => $item->phone_number,
                 'source_trunk'   => $sourceInfo['source_trunk'],
-                'source_ip'      => $sourceInfo['source_ip'] ?: ($sourceInfo['source_trunk'] !== 'Asterisk-Inbound' ? $sourceInfo['source_trunk'] : '—'),
+                'source_dns'     => $sourceInfo['source_dns'],
+                'source_ip'      => $sourceInfo['source_ip'],
                 'source_host'    => $sourceInfo['source_host'],
                 'hits_count'     => (int) $item->hits_count,
                 'status'         => $item->status ?: 'rejected',
@@ -100,7 +104,7 @@ class AbuseDetectorController extends Controller
 
         // Query database directly - fast & indexed (< 25ms)
         $dids = AbuseDid::select([
-            'id', 'phone_number', 'source_trunk', 'hits_count', 'status', 'first_hit_at', 'last_hit_at', 'raw_log'
+            'id', 'phone_number', 'source_trunk', 'source_ip', 'hits_count', 'status', 'first_hit_at', 'last_hit_at', 'raw_log'
         ])
         ->orderBy('hits_count', 'desc')
         ->orderBy('last_hit_at', 'desc')
@@ -130,7 +134,7 @@ class AbuseDetectorController extends Controller
 
         // Direct DB query for real-time state
         $dids = AbuseDid::select([
-            'id', 'phone_number', 'source_trunk', 'hits_count', 'status', 'first_hit_at', 'last_hit_at', 'raw_log'
+            'id', 'phone_number', 'source_trunk', 'source_ip', 'hits_count', 'status', 'first_hit_at', 'last_hit_at', 'raw_log'
         ])
         ->orderBy('hits_count', 'desc')
         ->orderBy('last_hit_at', 'desc')
@@ -169,6 +173,18 @@ class AbuseDetectorController extends Controller
                 ->with('error', 'Please enter a valid phone number (at least 2 digits).');
         }
 
+        $resolvedIp = null;
+        if (!empty($trunk) && $trunk !== 'Manual-Entry') {
+            if (filter_var($trunk, FILTER_VALIDATE_IP)) {
+                $resolvedIp = $trunk;
+            } else {
+                $r = @gethostbyname($trunk);
+                if ($r && $r !== $trunk && filter_var($r, FILTER_VALIDATE_IP)) {
+                    $resolvedIp = $r;
+                }
+            }
+        }
+
         $abuseDid = AbuseDid::where('phone_number', $cleanPhone)->first();
 
         if ($abuseDid) {
@@ -176,6 +192,9 @@ class AbuseDetectorController extends Controller
             $abuseDid->last_hit_at = now();
             if ($trunk !== 'Manual-Entry') {
                 $abuseDid->source_trunk = $trunk;
+                if ($resolvedIp) {
+                    $abuseDid->source_ip = $resolvedIp;
+                }
             }
             $abuseDid->save();
             $msg = "DID {$cleanPhone} hit registered! Total hits: {$abuseDid->hits_count}.";
@@ -183,6 +202,7 @@ class AbuseDetectorController extends Controller
             $abuseDid = AbuseDid::create([
                 'phone_number' => $cleanPhone,
                 'source_trunk' => $trunk,
+                'source_ip' => $resolvedIp,
                 'hits_count' => 1,
                 'status' => 'rejected',
                 'first_hit_at' => now(),
@@ -296,7 +316,8 @@ class AbuseDetectorController extends Controller
             fputcsv($handle, [
                 'ID',
                 'Phone Number / DID',
-                'Source Trunk / Peer',
+                'Source Trunk / DNS',
+                'Source IP',
                 'Total Abuse Hits',
                 'Status',
                 'First Hit Date & Time',
@@ -305,10 +326,12 @@ class AbuseDetectorController extends Controller
             ]);
 
             foreach ($dids as $did) {
+                $sourceInfo = self::resolveSourceInfo($did->source_trunk, $did->raw_log, $did->source_ip);
                 fputcsv($handle, [
                     $did->id,
                     $did->phone_number,
-                    $did->source_trunk ?: '—',
+                    $sourceInfo['source_dns'],
+                    $sourceInfo['source_ip'],
                     $did->hits_count,
                     $did->status,
                     $did->first_hit_at ? $did->first_hit_at->format('Y-m-d H:i:s') : '—',
@@ -348,7 +371,7 @@ class AbuseDetectorController extends Controller
         AbuseDid::ensureTableExists();
 
         $phone = preg_replace('/[^0-9]/', '', (string)$request->input('phone_number', $request->input('did', '')));
-        if (strlen($phone) < 4) {
+        if (strlen($phone) < 2) {
             return response()->json(['success' => false, 'message' => 'Invalid DID'], 422);
         }
 
@@ -356,12 +379,27 @@ class AbuseDetectorController extends Controller
         $status = $request->input('status', 'rejected');
         $callId = $request->input('call_id');
 
+        $resolvedIp = $request->input('source_ip');
+        if (empty($resolvedIp) && !empty($trunk) && $trunk !== 'Asterisk-Inbound') {
+            if (filter_var($trunk, FILTER_VALIDATE_IP)) {
+                $resolvedIp = $trunk;
+            } else {
+                $r = @gethostbyname($trunk);
+                if ($r && $r !== $trunk && filter_var($r, FILTER_VALIDATE_IP)) {
+                    $resolvedIp = $r;
+                }
+            }
+        }
+
         $abuseDid = AbuseDid::where('phone_number', $phone)->first();
         if ($abuseDid) {
             $abuseDid->hits_count = ($abuseDid->hits_count ?? 1) + 1;
             $abuseDid->last_hit_at = now();
             if (!empty($trunk) && $trunk !== 'Asterisk-Inbound') {
                 $abuseDid->source_trunk = $trunk;
+                if ($resolvedIp) {
+                    $abuseDid->source_ip = $resolvedIp;
+                }
             }
             if ($callId) {
                 $abuseDid->last_call_id = $callId;
@@ -371,6 +409,7 @@ class AbuseDetectorController extends Controller
             $abuseDid = AbuseDid::create([
                 'phone_number' => $phone,
                 'source_trunk' => $trunk,
+                'source_ip' => $resolvedIp,
                 'hits_count' => 1,
                 'status' => $status,
                 'first_hit_at' => now(),
