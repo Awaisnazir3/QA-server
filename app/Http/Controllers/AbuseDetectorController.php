@@ -17,6 +17,80 @@ class AbuseDetectorController extends Controller
         $this->detector = $detector;
     }
 
+    private const KNOWN_TRUNKS = [
+        'sip10.didx.net',
+        'eu2.didx.net',
+        'eu3.didx.net',
+        'ca.didx.net',
+        'us2.didx.net',
+        'Sip.belloceanic.com',
+        'sip.belloceanic.com',
+    ];
+
+    /**
+     * Resolve source IP and trunk details
+     */
+    public static function resolveSourceInfo(?string $sourceTrunk, ?string $rawLog = null): array
+    {
+        $trunk = $sourceTrunk;
+
+        if (empty($trunk) || $trunk === 'Asterisk-Inbound') {
+            if (!empty($rawLog)) {
+                foreach (self::KNOWN_TRUNKS as $known) {
+                    if (stripos($rawLog, $known) !== false) {
+                        $trunk = $known;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (empty($trunk)) {
+            $trunk = 'Asterisk-Inbound';
+        }
+
+        $sourceIp = null;
+        if (filter_var($trunk, FILTER_VALIDATE_IP)) {
+            $sourceIp = $trunk;
+        } elseif ($trunk !== 'Asterisk-Inbound') {
+            $resolved = @gethostbyname($trunk);
+            if ($resolved && $resolved !== $trunk && filter_var($resolved, FILTER_VALIDATE_IP)) {
+                $sourceIp = $resolved;
+            } else {
+                $sourceIp = $trunk;
+            }
+        }
+
+        return [
+            'source_ip'    => $sourceIp,
+            'source_trunk' => $trunk,
+            'source_host'  => $trunk !== 'Asterisk-Inbound' ? $trunk : null,
+        ];
+    }
+
+    /**
+     * Format DIDs for Blade and JSON streams
+     */
+    protected function formatDids($dids)
+    {
+        return $dids->map(function ($item) {
+            $sourceInfo = self::resolveSourceInfo($item->source_trunk, $item->raw_log);
+
+            return [
+                'id'             => $item->id,
+                'phone_number'   => $item->phone_number,
+                'source_trunk'   => $sourceInfo['source_trunk'],
+                'source_ip'      => $sourceInfo['source_ip'] ?: ($sourceInfo['source_trunk'] !== 'Asterisk-Inbound' ? $sourceInfo['source_trunk'] : '—'),
+                'source_host'    => $sourceInfo['source_host'],
+                'hits_count'     => (int) $item->hits_count,
+                'status'         => $item->status ?: 'rejected',
+                'first_hit_at'   => $item->first_hit_at ? $item->first_hit_at->format('M d, H:i:s') : '—',
+                'last_hit_at'    => $item->last_hit_at ? $item->last_hit_at->format('M d, H:i:s') : '—',
+                'last_hit_human' => $item->last_hit_at ? $item->last_hit_at->diffForHumans() : '—',
+            ];
+        });
+    }
+
     /**
      * Display Abuse DIDs Detector dashboard
      */
@@ -26,7 +100,7 @@ class AbuseDetectorController extends Controller
 
         // Query database directly - fast & indexed (< 25ms)
         $dids = AbuseDid::select([
-            'id', 'phone_number', 'source_trunk', 'hits_count', 'status', 'first_hit_at', 'last_hit_at'
+            'id', 'phone_number', 'source_trunk', 'hits_count', 'status', 'first_hit_at', 'last_hit_at', 'raw_log'
         ])
         ->orderBy('hits_count', 'desc')
         ->orderBy('last_hit_at', 'desc')
@@ -34,20 +108,7 @@ class AbuseDetectorController extends Controller
 
         $stats = $this->calculateStats($dids);
         $top5 = $dids->take(5);
-
-        // Pre-format DIDs for fast JSON hydration in JavaScript (avoids 859 Blade diffForHumans loops)
-        $formattedDids = $dids->map(function ($item) {
-            return [
-                'id' => $item->id,
-                'phone_number' => $item->phone_number,
-                'source_trunk' => $item->source_trunk ?: 'Asterisk-Inbound',
-                'hits_count' => (int) $item->hits_count,
-                'status' => $item->status ?: 'rejected',
-                'first_hit_at' => $item->first_hit_at ? $item->first_hit_at->format('M d, H:i:s') : '—',
-                'last_hit_at' => $item->last_hit_at ? $item->last_hit_at->format('M d, H:i:s') : '—',
-                'last_hit_human' => $item->last_hit_at ? $item->last_hit_at->diffForHumans() : '—',
-            ];
-        });
+        $formattedDids = $this->formatDids($dids);
 
         return view('operations.abuse-dids', [
             'dids' => $dids,
@@ -69,27 +130,14 @@ class AbuseDetectorController extends Controller
 
         // Direct DB query for real-time state
         $dids = AbuseDid::select([
-            'id', 'phone_number', 'source_trunk', 'hits_count', 'status', 'first_hit_at', 'last_hit_at'
+            'id', 'phone_number', 'source_trunk', 'hits_count', 'status', 'first_hit_at', 'last_hit_at', 'raw_log'
         ])
         ->orderBy('hits_count', 'desc')
         ->orderBy('last_hit_at', 'desc')
         ->get();
 
         $stats = $this->calculateStats($dids);
-
-        $formattedDids = $dids->map(function ($item) {
-            return [
-                'id' => $item->id,
-                'phone_number' => $item->phone_number,
-                'source_trunk' => $item->source_trunk ?: 'Asterisk-Inbound',
-                'hits_count' => (int) $item->hits_count,
-                'status' => $item->status ?: 'rejected',
-                'first_hit_at' => $item->first_hit_at ? $item->first_hit_at->format('M d, H:i:s') : '—',
-                'last_hit_at' => $item->last_hit_at ? $item->last_hit_at->format('M d, H:i:s') : '—',
-                'last_hit_human' => $item->last_hit_at ? $item->last_hit_at->diffForHumans() : '—',
-            ];
-        });
-
+        $formattedDids = $this->formatDids($dids);
         $top5 = $formattedDids->take(5)->values();
 
         return response()->json([
