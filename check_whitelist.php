@@ -1,12 +1,11 @@
 #!/usr/bin/php -q
 <?php
 /**
- * Asterisk AGI - Whitelist Checker & Real-Time Abuse DID Detector
+ * Asterisk AGI - Whitelist Checker, Router & Real-Time Abuse Detector
  * Location on Asterisk Server: /var/lib/asterisk/agi-bin/check_whitelist.php
  * Permissions: chmod +x /var/lib/asterisk/agi-bin/check_whitelist.php
  */
 
-// Guarantee that caller hangup does NOT terminate script before writing to database
 @ignore_user_abort(true);
 @set_time_limit(5);
 
@@ -16,7 +15,21 @@ $dbUser = 'admin';
 $dbPass = '12343211';
 $dbName = 'telecom_db';
 
-// Read AGI Environment variables
+// Helper function to send AGI command and read response
+function agiCommand($cmd) {
+    @fputs(STDOUT, trim($cmd) . "\n");
+    @fflush(STDOUT);
+    $resp = @fgets(STDIN);
+    return $resp ? trim($resp) : '';
+}
+
+// Helper function to set variable in Asterisk channel via both AGI and dialplan application
+function setAgiChannelVar($name, $val) {
+    agiCommand("SET VARIABLE {$name} {$val}");
+    agiCommand("EXEC Set {$name}={$val}");
+}
+
+// 1. Read AGI Environment variables from Asterisk
 $agi = [];
 while (!feof(STDIN)) {
     $line = trim(fgets(STDIN));
@@ -29,7 +42,7 @@ while (!feof(STDIN)) {
     }
 }
 
-// Extract DID from AGI arguments ($argv[1]) or agi_extension / agi_dnid / agi_callerid
+// 2. Extract DID from AGI arguments ($argv[1]) or agi_extension / agi_dnid / agi_callerid
 $didNumber = '';
 if (isset($argv[1]) && !empty(trim($argv[1]))) {
     $didNumber = trim($argv[1]);
@@ -43,73 +56,25 @@ if (isset($argv[1]) && !empty(trim($argv[1]))) {
 
 $cleanDid = preg_replace('/[^0-9]/', '', $didNumber);
 
-// Extract Channel name from all available sources
+// 3. Extract Channel name from all available sources
 $channel = $agi['agi_channel'] ?? ($_SERVER['agi_channel'] ?? ($_ENV['agi_channel'] ?? (getenv('agi_channel') ?: '')));
 
-// 1. Query Asterisk directly via AGI protocol if channel not present
 if (empty($channel) || $channel === 'Asterisk-Inbound') {
-    @fputs(STDOUT, "GET VARIABLE CHANNEL\n");
-    @fflush(STDOUT);
-    $resp = @fgets(STDIN);
+    $resp = agiCommand("GET VARIABLE CHANNEL");
     if ($resp && preg_match('/\((.+?)\)/', $resp, $rm) && !empty(trim($rm[1]))) {
         $channel = trim($rm[1]);
     }
 }
 
-// 2. Query Asterisk directly for dynamic PJSIP endpoint
-$dynamicEndpoint = '';
-@fputs(STDOUT, "GET VARIABLE CHANNEL(endpoint)\n");
-@fflush(STDOUT);
-$resp = @fgets(STDIN);
-if ($resp && preg_match('/\((.+?)\)/', $resp, $rm) && !empty(trim($rm[1]))) {
-    $dynamicEndpoint = trim($rm[1]);
-}
-if (empty($dynamicEndpoint)) {
-    @fputs(STDOUT, "GET VARIABLE PJSIP_ENDPOINT\n");
-    @fflush(STDOUT);
-    $resp = @fgets(STDIN);
-    if ($resp && preg_match('/\((.+?)\)/', $resp, $rm) && !empty(trim($rm[1]))) {
-        $dynamicEndpoint = trim($rm[1]);
-    }
-}
-
-// 3. Query Asterisk directly for dynamic remote IP / domain
-$dynamicRemoteAddr = '';
-@fputs(STDOUT, "GET VARIABLE CHANNEL(pjsip,remote_addr)\n");
-@fflush(STDOUT);
-$resp = @fgets(STDIN);
-if ($resp && preg_match('/\((.+?)\)/', $resp, $rm) && !empty(trim($rm[1]))) {
-    $dynamicRemoteAddr = trim($rm[1]);
-}
-if (empty($dynamicRemoteAddr)) {
-    @fputs(STDOUT, "GET VARIABLE CHANNEL(recvip)\n");
-    @fflush(STDOUT);
-    $resp = @fgets(STDIN);
-    if ($resp && preg_match('/\((.+?)\)/', $resp, $rm) && !empty(trim($rm[1]))) {
-        $dynamicRemoteAddr = trim($rm[1]);
-    }
-}
-if (empty($dynamicRemoteAddr)) {
-    @fputs(STDOUT, "GET VARIABLE SIPDOMAIN\n");
-    @fflush(STDOUT);
-    $resp = @fgets(STDIN);
-    if ($resp && preg_match('/\((.+?)\)/', $resp, $rm) && !empty(trim($rm[1]))) {
-        $dynamicRemoteAddr = trim($rm[1]);
-    }
-}
-
-// 4. Resolve Trunk Name / DNS dynamically from real-time channel or endpoint
+// 4. Resolve Dynamic Trunk Name / DNS
 $trunkName = 'Asterisk-Inbound';
 
-if (!empty($dynamicEndpoint) && !in_array($dynamicEndpoint, ['Asterisk-Inbound', '(null)', 'none', 'unknown'])) {
-    $trunkName = $dynamicEndpoint;
-} elseif (preg_match('/(?:PJSIP|SIP|IAX2|DAHDI)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]+|\/|:|"|\s|$)/i', $channel, $m)) {
+if (preg_match('/(?:PJSIP|SIP|IAX2|DAHDI)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]+|\/|:|"|\s|$)/i', $channel, $m)) {
     $trunkName = $m[1];
 } elseif (isset($argv[2]) && !empty(trim($argv[2]))) {
     $trunkName = trim($argv[2]);
 }
 
-// Fallback search in all AGI inputs if still generic
 if ($trunkName === 'Asterisk-Inbound') {
     $allInputs = implode(' ', [
         $channel,
@@ -124,7 +89,6 @@ if ($trunkName === 'Asterisk-Inbound') {
     }
 }
 
-// Fallback: search Asterisk log messages if running locally on server
 if ($trunkName === 'Asterisk-Inbound' && !empty($cleanDid) && PHP_OS_FAMILY !== 'Windows') {
     $escaped = escapeshellarg($cleanDid);
     $grepOut = @shell_exec("grep -F {$escaped} /var/log/asterisk/messages 2>/dev/null | tail -n 10");
@@ -134,17 +98,6 @@ if ($trunkName === 'Asterisk-Inbound' && !empty($cleanDid) && PHP_OS_FAMILY !== 
 }
 
 // 5. Resolve Source IP dynamically
-$sourceIp = '';
-if (!empty($dynamicRemoteAddr)) {
-    if (preg_match('/^([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/', $dynamicRemoteAddr, $ipM)) {
-        $sourceIp = $ipM[1];
-    }
-}
-
-if (empty($sourceIp) && filter_var($trunkName, FILTER_VALIDATE_IP)) {
-    $sourceIp = $trunkName;
-}
-
 $trunkIpMap = [
     'sip10.didx.net' => '198.211.99.232',
     'eu2.didx.net' => '178.62.98.165',
@@ -157,14 +110,15 @@ $trunkIpMap = [
     'VPL-Switch' => '104.131.49.119',
 ];
 
-if (empty($sourceIp)) {
-    if (isset($trunkIpMap[$trunkName])) {
-        $sourceIp = $trunkIpMap[$trunkName];
-    } elseif ($trunkName !== 'Asterisk-Inbound') {
-        $resolved = @gethostbyname($trunkName);
-        if ($resolved && $resolved !== $trunkName && filter_var($resolved, FILTER_VALIDATE_IP)) {
-            $sourceIp = $resolved;
-        }
+$sourceIp = '';
+if (filter_var($trunkName, FILTER_VALIDATE_IP)) {
+    $sourceIp = $trunkName;
+} elseif (isset($trunkIpMap[$trunkName])) {
+    $sourceIp = $trunkIpMap[$trunkName];
+} elseif ($trunkName !== 'Asterisk-Inbound') {
+    $resolved = @gethostbyname($trunkName);
+    if ($resolved && $resolved !== $trunkName && filter_var($resolved, FILTER_VALIDATE_IP)) {
+        $sourceIp = $resolved;
     }
 }
 
@@ -174,7 +128,7 @@ if (in_array(strtolower(trim($callerId)), ['<unknown>', '(null)', 'none', 'unkno
     $callerId = '';
 }
 
-// 1. REAL-TIME LOGGING TO ABUSE DIDS TABLE & CALL_LOGS TABLE & DIALPLAN ROUTING
+// 6. REAL-TIME ROUTE CHECKING, DB UPDATES & DIALPLAN ROUTE PROPAGATION
 if (!empty($cleanDid) && strlen($cleanDid) >= 2) {
     try {
         $db = @new mysqli($dbHost, $dbUser, $dbPass, $dbName);
@@ -185,17 +139,23 @@ if (!empty($cleanDid) && strlen($cleanDid) >= 2) {
             $escapedCallId = $callId ? "'" . $db->real_escape_string($callId) . "'" : "NULL";
             $escapedCallerId = $db->real_escape_string($callerId);
 
+            $last8 = strlen($cleanDid) >= 8 ? substr($cleanDid, -8) : $cleanDid;
+            $escapedLast8 = $db->real_escape_string($last8);
+
             // A. Check if DID is configured with ROUTE status or 7788 destination in call_logs
             $isRouted = false;
             $routeDestination = '7788';
-            $chkQuery = "SELECT status, route_destination FROM call_logs 
+
+            $chkQuery = "SELECT id, phone_number, status, route_destination FROM call_logs 
                          WHERE phone_number = '{$escapedDid}' 
                             OR phone_number = '+{$escapedDid}' 
                             OR phone_number = '00{$escapedDid}' 
                             OR REPLACE(REPLACE(phone_number, '+', ''), ' ', '') = '{$escapedDid}' 
-                            OR phone_number LIKE '%{$escapedDid}%' 
+                            OR phone_number LIKE '%{$escapedDid}%'
+                            OR phone_number LIKE '%{$escapedLast8}%'
                          ORDER BY (CASE WHEN status = 'route' THEN 1 WHEN status = 'pass' THEN 2 ELSE 3 END) ASC 
                          LIMIT 1";
+
             $chkRes = @$db->query($chkQuery);
             if ($chkRes && $row = $chkRes->fetch_assoc()) {
                 $statusCheck = strtolower(trim($row['status'] ?? ''));
@@ -246,7 +206,8 @@ if (!empty($cleanDid) && strlen($cleanDid) >= 2) {
                     OR phone_number = '+{$escapedDid}' 
                     OR phone_number = '00{$escapedDid}'
                     OR REPLACE(REPLACE(phone_number, '+', ''), ' ', '') = '{$escapedDid}'
-                    OR phone_number LIKE '%{$escapedDid}%'";
+                    OR phone_number LIKE '%{$escapedDid}%'
+                    OR phone_number LIKE '%{$escapedLast8}%'";
 
             @$db->query($updateCallLogQuery);
 
@@ -267,67 +228,41 @@ if (!empty($cleanDid) && strlen($cleanDid) >= 2) {
                     OR phone_number = '+{$escapedDid}' 
                     OR phone_number = '00{$escapedDid}'
                     OR REPLACE(REPLACE(phone_number, '+', ''), ' ', '') = '{$escapedDid}'
-                    OR phone_number LIKE '%{$escapedDid}%'";
+                    OR phone_number LIKE '%{$escapedDid}%'
+                    OR phone_number LIKE '%{$escapedLast8}%'";
 
             @$db->query($updateBulkDidQuery);
 
             // E. Pass Channel Variables back to Asterisk Dialplan
             if ($isRouted) {
-                @fputs(STDOUT, "SET VARIABLE WHITELIST_STATUS \"ALLOW\"\n");
-                @fflush(STDOUT);
-                @fgets(STDIN);
-
-                @fputs(STDOUT, "SET VARIABLE WHITELIST \"ALLOW\"\n");
-                @fflush(STDOUT);
-                @fgets(STDIN);
-
-                @fputs(STDOUT, "SET VARIABLE ROUTE_STATUS \"ALLOW\"\n");
-                @fflush(STDOUT);
-                @fgets(STDIN);
-
-                @fputs(STDOUT, "SET VARIABLE STATUS \"ALLOW\"\n");
-                @fflush(STDOUT);
-                @fgets(STDIN);
-
-                @fputs(STDOUT, "SET VARIABLE ALLOW \"1\"\n");
-                @fflush(STDOUT);
-                @fgets(STDIN);
-
-                @fputs(STDOUT, "SET VARIABLE IS_ROUTED \"1\"\n");
-                @fflush(STDOUT);
-                @fgets(STDIN);
-
-                @fputs(STDOUT, "SET VARIABLE ROUTE_DESTINATION \"{$routeDestination}\"\n");
-                @fflush(STDOUT);
-                @fgets(STDIN);
-
-                @fputs(STDOUT, "SET VARIABLE DIAL_DESTINATION \"{$routeDestination}\"\n");
-                @fflush(STDOUT);
-                @fgets(STDIN);
-
-                @fputs(STDOUT, "SET VARIABLE ROUTE \"{$routeDestination}\"\n");
-                @fflush(STDOUT);
-                @fgets(STDIN);
-
-                @fputs(STDOUT, "SET VARIABLE DESTINATION \"{$routeDestination}\"\n");
-                @fflush(STDOUT);
-                @fgets(STDIN);
+                // Set every variable Asterisk dialplan could evaluate for allow branch
+                setAgiChannelVar("WHITELIST_STATUS", "ALLOW");
+                setAgiChannelVar("WHITELIST", "ALLOW");
+                setAgiChannelVar("WHITELIST", "1");
+                setAgiChannelVar("ROUTE_STATUS", "ALLOW");
+                setAgiChannelVar("STATUS", "ALLOW");
+                setAgiChannelVar("ALLOW", "1");
+                setAgiChannelVar("IS_ROUTED", "1");
+                setAgiChannelVar("IS_WHITELISTED", "1");
+                setAgiChannelVar("WHITELISTED", "1");
+                setAgiChannelVar("WHITELIST_RESULT", "ALLOW");
+                setAgiChannelVar("ROUTE_DESTINATION", $routeDestination);
+                setAgiChannelVar("DIAL_DESTINATION", $routeDestination);
+                setAgiChannelVar("ROUTE", $routeDestination);
+                setAgiChannelVar("DESTINATION", $routeDestination);
+                setAgiChannelVar("ROUTE_EXT", $routeDestination);
+                setAgiChannelVar("DIAL_EXTEN", $routeDestination);
+                setAgiChannelVar("TARGET_EXTEN", $routeDestination);
             } else {
-                @fputs(STDOUT, "SET VARIABLE WHITELIST_STATUS \"REJECT\"\n");
-                @fflush(STDOUT);
-                @fgets(STDIN);
-
-                @fputs(STDOUT, "SET VARIABLE WHITELIST \"REJECT\"\n");
-                @fflush(STDOUT);
-                @fgets(STDIN);
-
-                @fputs(STDOUT, "SET VARIABLE ALLOW \"0\"\n");
-                @fflush(STDOUT);
-                @fgets(STDIN);
-
-                @fputs(STDOUT, "SET VARIABLE IS_ROUTED \"0\"\n");
-                @fflush(STDOUT);
-                @fgets(STDIN);
+                setAgiChannelVar("WHITELIST_STATUS", "REJECT");
+                setAgiChannelVar("WHITELIST", "REJECT");
+                setAgiChannelVar("WHITELIST", "0");
+                setAgiChannelVar("ALLOW", "0");
+                setAgiChannelVar("IS_ROUTED", "0");
+                setAgiChannelVar("IS_WHITELISTED", "0");
+                setAgiChannelVar("STATUS", "REJECT");
+                setAgiChannelVar("ROUTE_STATUS", "REJECT");
+                setAgiChannelVar("WHITELIST_RESULT", "REJECT");
             }
 
             @$db->close();
@@ -337,5 +272,5 @@ if (!empty($cleanDid) && strlen($cleanDid) >= 2) {
     }
 }
 
-// 2. Return 0 to Asterisk dialplan
+// 7. Return 0 to Asterisk dialplan
 exit(0);
