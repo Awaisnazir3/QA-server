@@ -10,6 +10,19 @@ use Illuminate\Http\Request;
 class AbuseDidApiController extends Controller
 {
     /**
+     * Preconfigured PJSIP Source IP / DNS trunks
+     */
+    private const KNOWN_TRUNKS = [
+        'sip10.didx.net',
+        'eu2.didx.net',
+        'eu3.didx.net',
+        'ca.didx.net',
+        'us2.didx.net',
+        'Sip.belloceanic.com',
+        'sip.belloceanic.com',
+    ];
+
+    /**
      * Clean phone number by removing non-numeric characters and leading zeroes
      */
     private function cleanPhone(string $number): string
@@ -65,6 +78,62 @@ class AbuseDidApiController extends Controller
     }
 
     /**
+     * Resolve source IP and trunk/host details
+     */
+    private function resolveSourceInfo(?string $sourceTrunk, ?string $rawLog = null): array
+    {
+        $trunk = $sourceTrunk;
+
+        // If source_trunk is missing or generic "Asterisk-Inbound", inspect raw_log if present
+        if (empty($trunk) || $trunk === 'Asterisk-Inbound') {
+            if (!empty($rawLog)) {
+                foreach (self::KNOWN_TRUNKS as $known) {
+                    if (stripos($rawLog, $known) !== false) {
+                        $trunk = $known;
+                        break;
+                    }
+                }
+
+                if (empty($trunk) || $trunk === 'Asterisk-Inbound') {
+                    if (preg_match('/(?:PJSIP|SIP)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]+|\/|:|"|\s)/i', $rawLog, $m)) {
+                        $trunk = $m[1];
+                    }
+                }
+            }
+        }
+
+        if (empty($trunk)) {
+            $trunk = 'Asterisk-Inbound';
+        }
+
+        $sourceIp = null;
+
+        // Check if trunk is an IP address directly
+        if (filter_var($trunk, FILTER_VALIDATE_IP)) {
+            $sourceIp = $trunk;
+        } elseif ($trunk !== 'Asterisk-Inbound') {
+            // Attempt DNS resolution to obtain IP
+            $resolved = @gethostbyname($trunk);
+            if ($resolved && $resolved !== $trunk && filter_var($resolved, FILTER_VALIDATE_IP)) {
+                $sourceIp = $resolved;
+            } else {
+                $sourceIp = $trunk; // Return host if DNS resolve unresolvable
+            }
+        } else {
+            // Check raw log for any IP
+            if (!empty($rawLog) && preg_match('/\b([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})\b/', $rawLog, $ipM)) {
+                $sourceIp = $ipM[1];
+            }
+        }
+
+        return [
+            'source_ip'    => $sourceIp ?: ($trunk !== 'Asterisk-Inbound' ? $trunk : null),
+            'source_trunk' => $trunk,
+            'source_host'  => $trunk !== 'Asterisk-Inbound' ? $trunk : null,
+        ];
+    }
+
+    /**
      * Format AbuseDid model into API response array
      * If exists: status = "PASS"
      * If not exists: status = "Not-Available"
@@ -78,11 +147,15 @@ class AbuseDidApiController extends Controller
                 'found'         => false,
                 'status'        => 'Not-Available',
                 'hits_count'    => 0,
+                'source_ip'     => null,
                 'source_trunk'  => null,
+                'source_host'   => null,
                 'first_hit_at'  => null,
                 'last_hit_at'   => null,
             ];
         }
+
+        $sourceInfo = $this->resolveSourceInfo($abuseDid->source_trunk, $abuseDid->raw_log);
 
         return [
             'did'           => $abuseDid->phone_number,
@@ -90,7 +163,9 @@ class AbuseDidApiController extends Controller
             'found'         => true,
             'status'        => 'PASS',
             'hits_count'    => (int) $abuseDid->hits_count,
-            'source_trunk'  => $abuseDid->source_trunk ?: 'Asterisk-Inbound',
+            'source_ip'     => $sourceInfo['source_ip'],
+            'source_trunk'  => $sourceInfo['source_trunk'],
+            'source_host'   => $sourceInfo['source_host'],
             'first_hit_at'  => $abuseDid->first_hit_at ? $abuseDid->first_hit_at->toDateTimeString() : null,
             'last_hit_at'   => $abuseDid->last_hit_at ? $abuseDid->last_hit_at->toDateTimeString() : null,
             'created_at'    => $abuseDid->created_at ? $abuseDid->created_at->toDateTimeString() : null,
@@ -193,12 +268,16 @@ class AbuseDidApiController extends Controller
 
         $limit = $request->query('limit', 100);
         $records = $query->limit((int)$limit)->get()->map(function ($did) {
+            $sourceInfo = $this->resolveSourceInfo($did->source_trunk, $did->raw_log);
+
             return [
                 'id'            => $did->id,
                 'phone_number'  => $did->phone_number,
                 'status'        => 'PASS',
                 'hits_count'    => (int) $did->hits_count,
-                'source_trunk'  => $did->source_trunk ?: 'Asterisk-Inbound',
+                'source_ip'     => $sourceInfo['source_ip'],
+                'source_trunk'  => $sourceInfo['source_trunk'],
+                'source_host'   => $sourceInfo['source_host'],
                 'first_hit_at'  => $did->first_hit_at ? $did->first_hit_at->toDateTimeString() : null,
                 'last_hit_at'   => $did->last_hit_at ? $did->last_hit_at->toDateTimeString() : null,
             ];

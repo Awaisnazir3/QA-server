@@ -145,9 +145,17 @@ class AbuseDetectorService
                 $chanHex = 'CHAN-' . strtolower($pjsipMatch[1]);
             }
 
-            // Trunk / Peer name e.g. eu3.didx.net
+            // Trunk / Peer name e.g. eu3.didx.net, ca.didx.net, etc.
             $trunk = null;
-            if (preg_match('/(?:PJSIP|SIP)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]+|\/|:|"|\s)/i', $trimmed, $tMatch)) {
+            $knownTrunks = ['sip10.didx.net', 'eu2.didx.net', 'eu3.didx.net', 'ca.didx.net', 'us2.didx.net', 'Sip.belloceanic.com', 'sip.belloceanic.com'];
+            foreach ($knownTrunks as $kt) {
+                if (stripos($trimmed, $kt) !== false) {
+                    $trunk = $kt;
+                    break;
+                }
+            }
+
+            if (!$trunk && preg_match('/(?:PJSIP|SIP)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]+|\/|:|"|\s)/i', $trimmed, $tMatch)) {
                 $trunk = $tMatch[1];
             }
 

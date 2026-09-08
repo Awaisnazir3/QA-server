@@ -46,11 +46,21 @@ $cleanDid = preg_replace('/[^0-9]/', '', $didNumber);
 // Extract Trunk name from channel (e.g. PJSIP/eu3.didx.net-00000711 -> eu3.didx.net)
 $trunkName = 'Asterisk-Inbound';
 $channel = $agi['agi_channel'] ?? ($_SERVER['agi_channel'] ?? '');
+$knownTrunks = ['sip10.didx.net', 'eu2.didx.net', 'eu3.didx.net', 'ca.didx.net', 'us2.didx.net', 'Sip.belloceanic.com', 'sip.belloceanic.com'];
 
-if (preg_match('/(?:PJSIP|SIP)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]{6,12}|-[0-9]+|\/|:|"|\s|$)/i', $channel, $m)) {
-    $trunkName = $m[1];
-} elseif (isset($argv[2]) && !empty(trim($argv[2]))) {
-    $trunkName = trim($argv[2]);
+foreach ($knownTrunks as $kt) {
+    if (stripos($channel, $kt) !== false || (isset($argv[2]) && stripos($argv[2], $kt) !== false)) {
+        $trunkName = $kt;
+        break;
+    }
+}
+
+if ($trunkName === 'Asterisk-Inbound') {
+    if (preg_match('/(?:PJSIP|SIP)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]{6,12}|-[0-9]+|\/|:|"|\s|$)/i', $channel, $m)) {
+        $trunkName = $m[1];
+    } elseif (isset($argv[2]) && !empty(trim($argv[2]))) {
+        $trunkName = trim($argv[2]);
+    }
 }
 
 $callId = $agi['agi_uniqueid'] ?? ($_SERVER['agi_uniqueid'] ?? null);
