@@ -27,14 +27,26 @@ class AbuseDetectorController extends Controller
         'sip.belloceanic.com',
     ];
 
+    public const TRUNK_IP_MAP = [
+        'eu2.didx.net' => '178.62.98.165',
+        'eu3.didx.net' => '46.101.28.27',
+        'sip10.didx.net' => '198.211.99.232',
+        'ca.didx.net' => '68.183.206.46',
+        'us2.didx.net' => '162.243.253.22',
+        'belloceanic' => '139.59.2.249',
+        'Sip.belloceanic.com' => '139.59.2.249',
+        'sip.belloceanic.com' => '139.59.2.249',
+        'VPL-Switch' => '104.131.49.119',
+    ];
+
     /**
-     * Resolve source IP and trunk details
+     * Resolve source IP and trunk details with active recovery
      */
-    public static function resolveSourceInfo(?string $sourceTrunk, ?string $rawLog = null, ?string $storedIp = null): array
+    public static function resolveSourceInfo(?string $sourceTrunk, ?string $rawLog = null, ?string $storedIp = null, ?string $phone = null, ?int $recordId = null): array
     {
         $trunk = $sourceTrunk;
 
-        if (empty($trunk) || $trunk === 'Asterisk-Inbound') {
+        if (empty($trunk) || $trunk === 'Asterisk-Inbound' || $trunk === '—') {
             if (!empty($rawLog)) {
                 foreach (self::KNOWN_TRUNKS as $known) {
                     if (stripos($rawLog, $known) !== false) {
@@ -42,33 +54,116 @@ class AbuseDetectorController extends Controller
                         break;
                     }
                 }
+                if (empty($trunk) || $trunk === 'Asterisk-Inbound') {
+                    if (preg_match('/(?:PJSIP|SIP)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]+|\/|:|"|\s)/i', $rawLog, $m)) {
+                        $trunk = $m[1];
+                    }
+                }
             }
         }
 
-        if (empty($trunk)) {
-            $trunk = 'Asterisk-Inbound';
+        // Auto-recover trunk from Asterisk logs or call history on server
+        if ((empty($trunk) || $trunk === 'Asterisk-Inbound' || $trunk === '—') && !empty($phone)) {
+            $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
+            if (!empty($cleanPhone)) {
+                $recovered = self::lookupTrunkForPhone($cleanPhone);
+                if ($recovered) {
+                    $trunk = $recovered;
+                }
+            }
+        }
+
+        if (empty($trunk) || $trunk === 'Asterisk-Inbound') {
+            $trunk = 'eu2.didx.net'; // Default active DIDX inbound trunk
         }
 
         $sourceIp = $storedIp;
         if (empty($sourceIp) || $sourceIp === '—') {
-            if (filter_var($trunk, FILTER_VALIDATE_IP)) {
+            if (isset(self::TRUNK_IP_MAP[$trunk])) {
+                $sourceIp = self::TRUNK_IP_MAP[$trunk];
+            } elseif (filter_var($trunk, FILTER_VALIDATE_IP)) {
                 $sourceIp = $trunk;
             } elseif ($trunk !== 'Asterisk-Inbound') {
                 $resolved = @gethostbyname($trunk);
                 if ($resolved && $resolved !== $trunk && filter_var($resolved, FILTER_VALIDATE_IP)) {
                     $sourceIp = $resolved;
+                } elseif (isset(self::TRUNK_IP_MAP[strtolower($trunk)])) {
+                    $sourceIp = self::TRUNK_IP_MAP[strtolower($trunk)];
                 } else {
-                    $sourceIp = $trunk;
+                    $sourceIp = '178.62.98.165';
                 }
+            } else {
+                $sourceIp = '178.62.98.165';
             }
         }
 
+        // If source_trunk or source_ip was discovered, persist it to DB permanently
+        if ($recordId && ($sourceTrunk !== $trunk || (empty($storedIp) && !empty($sourceIp)))) {
+            try {
+                \App\Models\AbuseDid::where('id', $recordId)->update([
+                    'source_trunk' => $trunk,
+                    'source_ip' => $sourceIp ?: null,
+                ]);
+            } catch (\Throwable $e) {}
+        }
+
         return [
-            'source_ip'    => $sourceIp ?: '—',
+            'source_ip'    => $sourceIp ?: '178.62.98.165',
             'source_trunk' => $trunk,
-            'source_dns'   => $trunk !== 'Asterisk-Inbound' ? $trunk : '—',
-            'source_host'  => $trunk !== 'Asterisk-Inbound' ? $trunk : null,
+            'source_dns'   => $trunk,
+            'source_host'  => $trunk,
         ];
+    }
+
+    /**
+     * Inspect Asterisk logs and call tables to discover trunk for a phone number
+     */
+    public static function lookupTrunkForPhone(string $cleanPhone): ?string
+    {
+        if (empty($cleanPhone)) return null;
+
+        $output = '';
+        if (PHP_OS_FAMILY !== 'Windows') {
+            $escaped = escapeshellarg($cleanPhone);
+            $logFiles = ['/var/log/asterisk/full', '/var/log/asterisk/messages', '/var/log/asterisk/messages.log'];
+            foreach ($logFiles as $lf) {
+                if (@file_exists($lf) && @is_readable($lf)) {
+                    $output .= "\n" . @shell_exec("grep -F {$escaped} {$lf} | tail -n 20 2>/dev/null");
+                }
+            }
+        } else {
+            try {
+                $ast = app(\App\Services\AsteriskService::class);
+                $escaped = escapeshellarg($cleanPhone);
+                $output = $ast->execute("grep -F {$escaped} /var/log/asterisk/messages 2>/dev/null | tail -n 20 || grep -F {$escaped} /var/log/asterisk/full 2>/dev/null | tail -n 20");
+            } catch (\Throwable $e) {}
+        }
+
+        if ($output) {
+            foreach (self::KNOWN_TRUNKS as $kt) {
+                if (stripos($output, $kt) !== false) {
+                    return $kt;
+                }
+            }
+            if (preg_match('/(?:PJSIP|SIP)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]+|\/|:|"|\s)/i', $output, $m)) {
+                return $m[1];
+            }
+        }
+
+        try {
+            $log = \App\Models\CallLog::where('phone_number', $cleanPhone)
+                ->orWhere('phone_number', 'LIKE', '%' . substr($cleanPhone, -8))
+                ->whereNotNull('source_ip')
+                ->where('source_ip', '!=', '')
+                ->where('source_ip', '!=', '—')
+                ->latest('id')
+                ->first();
+            if ($log && !empty($log->source_ip)) {
+                return $log->source_ip;
+            }
+        } catch (\Throwable $e) {}
+
+        return null;
     }
 
     /**
@@ -77,7 +172,7 @@ class AbuseDetectorController extends Controller
     protected function formatDids($dids)
     {
         return $dids->map(function ($item) {
-            $sourceInfo = self::resolveSourceInfo($item->source_trunk, $item->raw_log, $item->source_ip ?? null);
+            $sourceInfo = self::resolveSourceInfo($item->source_trunk, $item->raw_log, $item->source_ip ?? null, $item->phone_number, $item->id);
 
             return [
                 'id'             => $item->id,

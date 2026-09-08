@@ -25,7 +25,7 @@ while (!feof(STDIN)) {
     }
     if (strpos($line, ':') !== false) {
         list($key, $val) = explode(':', $line, 2);
-        $agi[trim($key)] = trim($val);
+        $agi[strtolower(trim($key))] = trim($val);
     }
 }
 
@@ -43,23 +43,72 @@ if (isset($argv[1]) && !empty(trim($argv[1]))) {
 
 $cleanDid = preg_replace('/[^0-9]/', '', $didNumber);
 
-// Extract Trunk name from channel (e.g. PJSIP/eu3.didx.net-00000711 -> eu3.didx.net)
-$trunkName = 'Asterisk-Inbound';
+// Extract Channel name from all available sources
 $channel = $agi['agi_channel'] ?? ($_SERVER['agi_channel'] ?? ($_ENV['agi_channel'] ?? (getenv('agi_channel') ?: '')));
-$knownTrunks = ['sip10.didx.net', 'eu2.didx.net', 'eu3.didx.net', 'ca.didx.net', 'us2.didx.net', 'Sip.belloceanic.com', 'sip.belloceanic.com'];
+
+// If channel not in initial AGI headers, query Asterisk directly via AGI protocol
+if (empty($channel) || $channel === 'Asterisk-Inbound') {
+    @fputs(STDOUT, "GET VARIABLE CHANNEL\n");
+    @fflush(STDOUT);
+    $resp = @fgets(STDIN);
+    if ($resp && preg_match('/\((.+?)\)/', $resp, $rm) && !empty(trim($rm[1]))) {
+        $channel = trim($rm[1]);
+    }
+}
+
+if (empty($channel) || $channel === 'Asterisk-Inbound') {
+    @fputs(STDOUT, "GET VARIABLE PJSIP_ENDPOINT\n");
+    @fflush(STDOUT);
+    $resp = @fgets(STDIN);
+    if ($resp && preg_match('/\((.+?)\)/', $resp, $rm) && !empty(trim($rm[1]))) {
+        $channel = trim($rm[1]);
+    }
+}
+
+$trunkName = 'Asterisk-Inbound';
+$knownTrunks = [
+    'sip10.didx.net', 'eu2.didx.net', 'eu3.didx.net', 'ca.didx.net', 
+    'us2.didx.net', 'Sip.belloceanic.com', 'sip.belloceanic.com'
+];
+
+$allInputs = implode(' ', [
+    $channel,
+    $argv[2] ?? '',
+    $argv[1] ?? '',
+    $agi['agi_channel'] ?? '',
+    $agi['agi_request'] ?? '',
+    json_encode($agi)
+]);
 
 foreach ($knownTrunks as $kt) {
-    if (stripos($channel, $kt) !== false || (isset($argv[2]) && stripos($argv[2], $kt) !== false)) {
+    if (stripos($allInputs, $kt) !== false) {
         $trunkName = $kt;
         break;
     }
 }
 
 if ($trunkName === 'Asterisk-Inbound') {
-    if (preg_match('/(?:PJSIP|SIP)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]{6,12}|-[0-9]+|\/|:|"|\s|$)/i', $channel, $m)) {
+    if (preg_match('/(?:PJSIP|SIP)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]+|\/|:|"|\s|$)/i', $allInputs, $m)) {
         $trunkName = $m[1];
     } elseif (isset($argv[2]) && !empty(trim($argv[2]))) {
         $trunkName = trim($argv[2]);
+    }
+}
+
+// Fallback: search Asterisk log messages if running locally on server
+if ($trunkName === 'Asterisk-Inbound' && !empty($cleanDid) && PHP_OS_FAMILY !== 'Windows') {
+    $escaped = escapeshellarg($cleanDid);
+    $grepOut = @shell_exec("grep -F {$escaped} /var/log/asterisk/messages 2>/dev/null | tail -n 10");
+    if ($grepOut) {
+        foreach ($knownTrunks as $kt) {
+            if (stripos($grepOut, $kt) !== false) {
+                $trunkName = $kt;
+                break;
+            }
+        }
+        if ($trunkName === 'Asterisk-Inbound' && preg_match('/(?:PJSIP|SIP)\/([a-zA-Z0-9\.\-_]+?)(?:-[0-9a-fA-F]+|\/|:|"|\s)/i', $grepOut, $gm)) {
+            $trunkName = $gm[1];
+        }
     }
 }
 

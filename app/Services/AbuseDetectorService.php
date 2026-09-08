@@ -26,9 +26,9 @@ class AbuseDetectorService
 
         if ($logContent === null) {
             if (!$force) {
-                // Throttle: only scan Asterisk log files at most once every 30 seconds
+                // Short throttle: 2 seconds max so live stream gets updates promptly
                 $lastScan = Cache::get('last_abuse_log_scan_time', 0);
-                if ((time() - $lastScan) < 30) {
+                if ((time() - $lastScan) < 2) {
                     return [
                         'new_hits' => 0,
                         'updated_dids' => [],
@@ -37,12 +37,12 @@ class AbuseDetectorService
                 }
             }
 
-            Cache::put('last_abuse_log_scan_time', time(), 120);
+            Cache::put('last_abuse_log_scan_time', time(), 60);
 
             $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
 
             if (!$isWindows) {
-                // On Linux production server: Read directly from local Asterisk log files (<1ms)
+                // On Linux production server: Read directly from local Asterisk log files and live CLI
                 $logContent = '';
                 $logFiles = [
                     '/var/log/asterisk/full',
@@ -55,20 +55,19 @@ class AbuseDetectorService
                     if (@file_exists($lf) && @is_readable($lf)) {
                         $lines = @file($lf, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
                         if ($lines && count($lines) > 0) {
-                            // Read up to 8000 lines without artificial clipping
-                            $logContent .= "\n" . implode("\n", array_slice($lines, -8000));
+                            $logContent .= "\n" . implode("\n", array_slice($lines, -4000));
                         }
                     }
                 }
 
                 if (empty(trim($logContent))) {
-                    $cmd = "tail -n 8000 /var/log/asterisk/full 2>/dev/null; tail -n 5000 /var/log/asterisk/messages 2>/dev/null; journalctl -u asterisk -n 2000 --no-pager 2>/dev/null || true";
+                    $cmd = "asterisk -rx 'core show channels verbose' 2>/dev/null; tail -n 5000 /var/log/asterisk/full 2>/dev/null; tail -n 5000 /var/log/asterisk/messages 2>/dev/null || true";
                     $logContent = @shell_exec($cmd);
                 }
             } else {
                 // On Windows dev machine: Execute via AsteriskService
                 try {
-                    $logContent = $this->asterisk->execute('tail -n 5000 /var/log/asterisk/full 2>/dev/null || tail -n 5000 /var/log/asterisk/messages 2>/dev/null');
+                    $logContent = $this->asterisk->execute("asterisk -rx 'core show channels verbose' 2>/dev/null; tail -n 5000 /var/log/asterisk/messages 2>/dev/null || tail -n 5000 /var/log/asterisk/full 2>/dev/null");
                 } catch (\Throwable $e) {
                     $logContent = '';
                 }
@@ -141,7 +140,7 @@ class AbuseDetectorService
 
             // Channel Hex ID e.g. PJSIP/eu3.didx.net-0000081e -> CHAN-0000081e
             $chanHex = null;
-            if (preg_match('/(?:PJSIP|SIP)\/[a-zA-Z0-9\.\-_]+-([0-9a-fA-F]{6,12})/i', $trimmed, $pjsipMatch)) {
+            if (preg_match('/(?:PJSIP|SIP)\/[a-zA-Z0-9\.\-_]+-([0-9a-fA-F]+)/i', $trimmed, $pjsipMatch)) {
                 $chanHex = 'CHAN-' . strtolower($pjsipMatch[1]);
             }
 
