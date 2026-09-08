@@ -233,19 +233,18 @@ if (!empty($cleanDid) && strlen($cleanDid) >= 2) {
 
             @$db->query($updateBulkDidQuery);
 
-            // E. Pass Channel Variables back to Asterisk Dialplan
+            // E. Pass Channel Variables back to Asterisk Dialplan matching extensions.conf [outbound1]
             if ($isRouted) {
-                // Set every variable Asterisk dialplan could evaluate for allow branch
-                setAgiChannelVar("WHITELIST_STATUS", "ALLOW");
-                setAgiChannelVar("WHITELIST", "ALLOW");
-                setAgiChannelVar("WHITELIST", "1");
-                setAgiChannelVar("ROUTE_STATUS", "ALLOW");
-                setAgiChannelVar("STATUS", "ALLOW");
+                // extensions.conf: GotoIf($["${WHITELIST_STATUS}" = "2"]?allow) -> Dials PJSIP/7788,30
+                setAgiChannelVar("WHITELIST_STATUS", "2");
+                setAgiChannelVar("WHITELIST", "2");
+                setAgiChannelVar("ROUTE_STATUS", "2");
+                setAgiChannelVar("STATUS", "2");
                 setAgiChannelVar("ALLOW", "1");
                 setAgiChannelVar("IS_ROUTED", "1");
                 setAgiChannelVar("IS_WHITELISTED", "1");
                 setAgiChannelVar("WHITELISTED", "1");
-                setAgiChannelVar("WHITELIST_RESULT", "ALLOW");
+                setAgiChannelVar("WHITELIST_RESULT", "2");
                 setAgiChannelVar("ROUTE_DESTINATION", $routeDestination);
                 setAgiChannelVar("DIAL_DESTINATION", $routeDestination);
                 setAgiChannelVar("ROUTE", $routeDestination);
@@ -254,15 +253,16 @@ if (!empty($cleanDid) && strlen($cleanDid) >= 2) {
                 setAgiChannelVar("DIAL_EXTEN", $routeDestination);
                 setAgiChannelVar("TARGET_EXTEN", $routeDestination);
             } else {
-                setAgiChannelVar("WHITELIST_STATUS", "REJECT");
-                setAgiChannelVar("WHITELIST", "REJECT");
-                setAgiChannelVar("WHITELIST", "0");
+                // extensions.conf: GotoIf($["${WHITELIST_STATUS}" = "1"]?reject:reject) -> Normal Pass / Reject
+                setAgiChannelVar("WHITELIST_STATUS", "1");
+                setAgiChannelVar("WHITELIST", "1");
+                setAgiChannelVar("ROUTE_STATUS", "1");
+                setAgiChannelVar("STATUS", "1");
                 setAgiChannelVar("ALLOW", "0");
                 setAgiChannelVar("IS_ROUTED", "0");
                 setAgiChannelVar("IS_WHITELISTED", "0");
-                setAgiChannelVar("STATUS", "REJECT");
-                setAgiChannelVar("ROUTE_STATUS", "REJECT");
-                setAgiChannelVar("WHITELIST_RESULT", "REJECT");
+                setAgiChannelVar("WHITELISTED", "0");
+                setAgiChannelVar("WHITELIST_RESULT", "1");
             }
 
             @$db->close();
