@@ -222,6 +222,27 @@ if (!empty($cleanDid) && strlen($cleanDid) >= 2) {
 
             @$db->query($updateCallLogQuery);
 
+            // C. Update status to PASS and update source_ip in bulk_dids table (Bulk Test Tab)
+            $updateBulkDidQuery = "UPDATE bulk_dids 
+                SET 
+                    status = 'pass',
+                    source_ip = CASE 
+                        WHEN '{$escapedTrunk}' != '' AND '{$escapedTrunk}' != 'Asterisk-Inbound' THEN '{$escapedTrunk}'
+                        WHEN '{$escapedIp}' != '' THEN '{$escapedIp}'
+                        WHEN source_ip IS NULL OR source_ip = '' OR source_ip = '—' THEN '{$escapedTrunk}'
+                        ELSE source_ip
+                    END,
+                    last_tested_at = NOW(),
+                    updated_at = NOW()
+                WHERE 
+                    phone_number = '{$escapedDid}' 
+                    OR phone_number = '+{$escapedDid}' 
+                    OR phone_number = '00{$escapedDid}'
+                    OR REPLACE(REPLACE(phone_number, '+', ''), ' ', '') = '{$escapedDid}'
+                    OR phone_number LIKE '%{$escapedDid}%'";
+
+            @$db->query($updateBulkDidQuery);
+
             @$db->close();
         }
     } catch (\Throwable $e) {

@@ -166,8 +166,10 @@ class BulkTestController extends Controller
         $status = 'pass';
         $sourceIp = null;
 
+        $cleanPhone = preg_replace('/[^0-9]/', '', $bulkDid->phone_number);
+
         if ($isWindows && !$useSsh) {
-            // Simulation on dev/Windows — always returns pass with a random trunk IP
+            // Simulation on dev/Windows — returns pass with a random trunk IP
             $sampleIps = ['198.211.99.232', '162.243.253.22', '178.62.98.165', '104.131.49.119', '139.59.2.249', '68.183.206.46'];
             $sourceIp = $sampleIps[array_rand($sampleIps)];
             $status = 'pass';
@@ -187,30 +189,64 @@ class BulkTestController extends Controller
                 $status = 'pass';
             }
 
-            // Try to detect source IP from Asterisk endpoint info
-            $endpointsRaw = $asterisk->execute("sudo /usr/sbin/asterisk -rx 'pjsip show endpoints' 2>/dev/null") ?: '';
-            if (preg_match('/sip:([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/i', $endpointsRaw, $ipMatch)) {
-                $sourceIp = $ipMatch[1];
+            // Brief wait for AGI script to write real-time channel & trunk to DB
+            usleep(250000); // 250ms
+
+            // 1. Check if check_whitelist.php updated bulk_dids with the real trunk/DNS/IP
+            $bulkDid->refresh();
+            if (!empty($bulkDid->source_ip) && !in_array($bulkDid->source_ip, ['—', 'Asterisk-Inbound', ''])) {
+                $sourceIp = $bulkDid->source_ip;
+            }
+
+            // 2. If still empty, check abuse_dids table for real-time captured trunk/IP
+            if (empty($sourceIp) && !empty($cleanPhone)) {
+                $abuseHit = \App\Models\AbuseDid::where('phone_number', $cleanPhone)
+                    ->orWhere('phone_number', 'like', '%' . $cleanPhone . '%')
+                    ->first();
+                if ($abuseHit && !empty($abuseHit->source_trunk) && $abuseHit->source_trunk !== 'Asterisk-Inbound') {
+                    $sourceIp = $abuseHit->source_trunk;
+                } elseif ($abuseHit && !empty($abuseHit->source_ip)) {
+                    $sourceIp = $abuseHit->source_ip;
+                }
+            }
+
+            // 3. If still empty, check call_logs
+            if (empty($sourceIp) && !empty($cleanPhone)) {
+                $logHit = CallLog::withoutGlobalScopes()
+                    ->where('phone_number', 'like', '%' . $cleanPhone . '%')
+                    ->first();
+                if ($logHit && !empty($logHit->source_ip) && !in_array($logHit->source_ip, ['—', '7788', 'Asterisk-Inbound', ''])) {
+                    $sourceIp = $logHit->source_ip;
+                }
+            }
+
+            // 4. Fallback to Asterisk endpoint info
+            if (empty($sourceIp)) {
+                $endpointsRaw = $asterisk->execute("sudo /usr/sbin/asterisk -rx 'pjsip show endpoints' 2>/dev/null") ?: '';
+                if (preg_match('/sip:([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/i', $endpointsRaw, $ipMatch)) {
+                    $sourceIp = $ipMatch[1];
+                }
             }
         }
 
         // Update bulk_dids table
         $bulkDid->update([
             'status'        => $status,
-            'source_ip'     => $sourceIp,
+            'source_ip'     => $sourceIp ?: ($bulkDid->source_ip ?: null),
             'last_tested_at' => now(),
         ]);
 
         // Sync status to matching call_logs row (matched by phone_number)
-        $cleanPhone = preg_replace('/[^0-9]/', '', $bulkDid->phone_number);
-        $matchingLog = CallLog::all()->first(function ($log) use ($cleanPhone) {
-            return preg_replace('/[^0-9]/', '', $log->phone_number) === $cleanPhone;
-        });
-        if ($matchingLog) {
-            $matchingLog->update([
-                'status'    => $status,
-                'source_ip' => $sourceIp,
-            ]);
+        if (!empty($cleanPhone)) {
+            $matchingLog = CallLog::withoutGlobalScopes()->get()->first(function ($log) use ($cleanPhone) {
+                return preg_replace('/[^0-9]/', '', $log->phone_number) === $cleanPhone;
+            });
+            if ($matchingLog) {
+                $matchingLog->update([
+                    'status'    => $status,
+                    'source_ip' => $sourceIp ?: $matchingLog->source_ip,
+                ]);
+            }
         }
 
         $bulkDid->refresh();
@@ -227,7 +263,7 @@ class BulkTestController extends Controller
     }
 
     /**
-     * API Status Endpoint — reads ONLY from bulk_dids
+     * API Status Endpoint — reads from bulk_dids and syncs with real-time captures
      */
     public function apiStatus(): JsonResponse
     {
@@ -235,13 +271,39 @@ class BulkTestController extends Controller
         $response = [];
 
         foreach ($dids as $did) {
+            $status = strtolower($did->status ?: 'pending');
+            $sourceIp = $did->source_ip ?: '—';
+
+            // Auto-heal missing source_ip from real-time tables if available
+            if ($sourceIp === '—' || empty($sourceIp)) {
+                $cleanPhone = preg_replace('/[^0-9]/', '', $did->phone_number);
+                if (!empty($cleanPhone)) {
+                    $abuseHit = \App\Models\AbuseDid::where('phone_number', $cleanPhone)->first();
+                    if ($abuseHit && !empty($abuseHit->source_trunk) && $abuseHit->source_trunk !== 'Asterisk-Inbound') {
+                        $sourceIp = $abuseHit->source_trunk;
+                        @$did->update(['source_ip' => $sourceIp]);
+                    } elseif ($abuseHit && !empty($abuseHit->source_ip)) {
+                        $sourceIp = $abuseHit->source_ip;
+                        @$did->update(['source_ip' => $sourceIp]);
+                    } else {
+                        $logHit = CallLog::withoutGlobalScopes()->where('phone_number', 'like', '%' . $cleanPhone . '%')->first();
+                        if ($logHit && !empty($logHit->source_ip) && !in_array($logHit->source_ip, ['—', '', '7788', 'Asterisk-Inbound'])) {
+                            $sourceIp = $logHit->source_ip;
+                            @$did->update(['source_ip' => $sourceIp]);
+                        }
+                    }
+                }
+            }
+
             $response[$did->id] = [
-                'status' => strtolower($did->status ?: 'pending'),
-                'source_ip' => $did->source_ip ?: '—',
+                'status' => $status,
+                'source_ip' => $sourceIp,
             ];
         }
 
-        return response()->json($response);
+        return response()->json($response)
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache');
     }
 
     /**

@@ -554,12 +554,15 @@ function autoPollBulkStatuses() {
     .then(function(res) { return res.json(); })
     .then(function(data) {
         document.querySelectorAll('.did-row').forEach(function(row) {
-            var info = data[row.getAttribute('data-id')];
+            var id = row.getAttribute('data-id');
+            var info = data[id];
             if (!info) return;
             var newStatus = String(info.status || 'pending').toLowerCase().trim();
-            var currentStatus = row.getAttribute('data-status');
-            if (currentStatus !== newStatus) {
-                updateRowStatus(row, newStatus, newStatus.toUpperCase(), info.source_ip || '—');
+            var currentStatus = String(row.getAttribute('data-status') || 'pending').toLowerCase().trim();
+            var currentIp = row.getAttribute('data-ip') || '—';
+            var newIp = info.source_ip || '—';
+            if (currentStatus !== newStatus || (newIp !== '—' && newIp !== currentIp)) {
+                updateRowStatus(row, newStatus, newStatus.toUpperCase(), newIp);
             }
         });
         recalculateStats();
