@@ -28,9 +28,9 @@ class AbuseDetectorController extends Controller
     ];
 
     public const TRUNK_IP_MAP = [
+        'sip10.didx.net' => '198.211.99.232',
         'eu2.didx.net' => '178.62.98.165',
         'eu3.didx.net' => '46.101.28.27',
-        'sip10.didx.net' => '198.211.99.232',
         'ca.didx.net' => '68.183.206.46',
         'us2.didx.net' => '162.243.253.22',
         'belloceanic' => '139.59.2.249',
@@ -73,8 +73,8 @@ class AbuseDetectorController extends Controller
             }
         }
 
-        if (empty($trunk) || $trunk === 'Asterisk-Inbound') {
-            $trunk = 'eu2.didx.net'; // Default active DIDX inbound trunk
+        if (empty($trunk)) {
+            $trunk = 'Asterisk-Inbound';
         }
 
         $sourceIp = $storedIp;
@@ -90,15 +90,13 @@ class AbuseDetectorController extends Controller
                 } elseif (isset(self::TRUNK_IP_MAP[strtolower($trunk)])) {
                     $sourceIp = self::TRUNK_IP_MAP[strtolower($trunk)];
                 } else {
-                    $sourceIp = '178.62.98.165';
+                    $sourceIp = $trunk;
                 }
-            } else {
-                $sourceIp = '178.62.98.165';
             }
         }
 
         // If source_trunk or source_ip was discovered, persist it to DB permanently
-        if ($recordId && ($sourceTrunk !== $trunk || (empty($storedIp) && !empty($sourceIp)))) {
+        if ($recordId && $trunk !== 'Asterisk-Inbound' && ($sourceTrunk !== $trunk || (empty($storedIp) && !empty($sourceIp)))) {
             try {
                 \App\Models\AbuseDid::where('id', $recordId)->update([
                     'source_trunk' => $trunk,
@@ -108,10 +106,10 @@ class AbuseDetectorController extends Controller
         }
 
         return [
-            'source_ip'    => $sourceIp ?: '178.62.98.165',
+            'source_ip'    => $sourceIp ?: ($trunk !== 'Asterisk-Inbound' ? $trunk : '—'),
             'source_trunk' => $trunk,
-            'source_dns'   => $trunk,
-            'source_host'  => $trunk,
+            'source_dns'   => $trunk !== 'Asterisk-Inbound' ? $trunk : '—',
+            'source_host'  => $trunk !== 'Asterisk-Inbound' ? $trunk : null,
         ];
     }
 

@@ -113,8 +113,22 @@ if ($trunkName === 'Asterisk-Inbound' && !empty($cleanDid) && PHP_OS_FAMILY !== 
 }
 
 // Resolve Source IP
+$trunkIpMap = [
+    'sip10.didx.net' => '198.211.99.232',
+    'eu2.didx.net' => '178.62.98.165',
+    'eu3.didx.net' => '46.101.28.27',
+    'ca.didx.net' => '68.183.206.46',
+    'us2.didx.net' => '162.243.253.22',
+    'belloceanic' => '139.59.2.249',
+    'Sip.belloceanic.com' => '139.59.2.249',
+    'sip.belloceanic.com' => '139.59.2.249',
+    'VPL-Switch' => '104.131.49.119',
+];
+
 $sourceIp = '';
-if (filter_var($trunkName, FILTER_VALIDATE_IP)) {
+if (isset($trunkIpMap[$trunkName])) {
+    $sourceIp = $trunkIpMap[$trunkName];
+} elseif (filter_var($trunkName, FILTER_VALIDATE_IP)) {
     $sourceIp = $trunkName;
 } elseif ($trunkName !== 'Asterisk-Inbound') {
     $resolved = @gethostbyname($trunkName);
