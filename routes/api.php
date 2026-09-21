@@ -24,9 +24,12 @@ Route::get('/bulk-did/status/{did}', [BulkDidApiController::class, 'getStatusByP
 Route::post('/bulk-did/batch-check', [BulkDidApiController::class, 'batchCheck'])->name('api.bulk-did.batch-check');
 Route::get('/bulk-did/list', [BulkDidApiController::class, 'listAll'])->name('api.bulk-did.list');
 
-// Abuse DID Status Check APIs
+// Abuse DID Status Check & Reset APIs
 Route::match(['get', 'post'], '/abuse-did/check', [AbuseDidApiController::class, 'check'])->name('api.abuse-did.check');
 Route::get('/abuse-did/status/{did}', [AbuseDidApiController::class, 'getStatusByParam'])->name('api.abuse-did.status');
 Route::post('/abuse-did/batch-check', [AbuseDidApiController::class, 'batchCheck'])->name('api.abuse-did.batch-check');
+Route::match(['get', 'post', 'delete'], '/abuse-did/reset', [AbuseDidApiController::class, 'reset'])->name('api.abuse-did.reset');
+Route::match(['get', 'post', 'delete'], '/abuse-did/reset/{did}', [AbuseDidApiController::class, 'resetByParam'])->name('api.abuse-did.reset-param');
+Route::post('/abuse-did/batch-reset', [AbuseDidApiController::class, 'batchReset'])->name('api.abuse-did.batch-reset');
 Route::get('/abuse-did/list', [AbuseDidApiController::class, 'listAll'])->name('api.abuse-did.list');
 

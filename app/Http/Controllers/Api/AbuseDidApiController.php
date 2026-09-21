@@ -351,6 +351,167 @@ class AbuseDidApiController extends Controller
     }
 
     /**
+     * Reset / delete a single DID from Abuse DIDs list
+     * 
+     * Supports:
+     * - GET /api/abuse-did/reset?did=1234567890
+     * - GET /api/abuse-did/reset?phone_number=1234567890
+     * - POST /api/abuse-did/reset {"did": "1234567890"}
+     * - POST /api/abuse-did/reset {"dids": ["1234567890", "0987654321"]}
+     * - DELETE /api/abuse-did/reset?did=1234567890
+     */
+    public function reset(Request $request): JsonResponse
+    {
+        // Check if multiple DIDs are submitted as an array
+        $dids = $request->input('dids');
+        if (is_array($dids) && count($dids) > 0) {
+            return $this->batchReset($request);
+        }
+
+        $did = $request->input('did') ?? $request->input('phone_number') ?? $request->query('did') ?? $request->query('phone_number');
+
+        if (empty($did)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The "did" or "phone_number" parameter is required.',
+            ], 422);
+        }
+
+        $didStr = (string)$did;
+        $record = $this->findAbuseDid($didStr);
+
+        if ($record) {
+            $phoneNumber = $record->phone_number;
+            $cleanNumber = $this->cleanPhone($didStr);
+            
+            // Delete record and any variations
+            $record->delete();
+            if (!empty($cleanNumber)) {
+                AbuseDid::where('phone_number', $cleanNumber)
+                    ->orWhere('phone_number', '+' . $cleanNumber)
+                    ->delete();
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "DID {$didStr} has been reset and deleted from abuse records.",
+                'did'     => $didStr,
+                'deleted' => true,
+                'status'  => 'Not-Available',
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "DID {$didStr} was not found in abuse records.",
+            'did'     => $didStr,
+            'deleted' => false,
+            'status'  => 'Not-Available',
+        ]);
+    }
+
+    /**
+     * Reset / delete DID via route parameter
+     * 
+     * Example: GET /api/abuse-did/reset/{did}
+     */
+    public function resetByParam(string $did): JsonResponse
+    {
+        if (empty(trim($did))) {
+            return response()->json([
+                'success' => false,
+                'message' => 'DID parameter is required.',
+            ], 422);
+        }
+
+        $didStr = (string)$did;
+        $record = $this->findAbuseDid($didStr);
+
+        if ($record) {
+            $cleanNumber = $this->cleanPhone($didStr);
+            $record->delete();
+            if (!empty($cleanNumber)) {
+                AbuseDid::where('phone_number', $cleanNumber)
+                    ->orWhere('phone_number', '+' . $cleanNumber)
+                    ->delete();
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "DID {$didStr} has been reset and deleted from abuse records.",
+                'did'     => $didStr,
+                'deleted' => true,
+                'status'  => 'Not-Available',
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "DID {$didStr} was not found in abuse records.",
+            'did'     => $didStr,
+            'deleted' => false,
+            'status'  => 'Not-Available',
+        ]);
+    }
+
+    /**
+     * Batch reset multiple DIDs from Abuse DIDs list
+     * 
+     * Example: POST /api/abuse-did/batch-reset {"dids": ["1234567890", "0987654321"]}
+     */
+    public function batchReset(Request $request): JsonResponse
+    {
+        $dids = $request->input('dids');
+
+        if (!is_array($dids) || empty($dids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The "dids" parameter must be a non-empty array of phone numbers.',
+            ], 422);
+        }
+
+        $deletedCount = 0;
+        $results = [];
+
+        foreach ($dids as $did) {
+            $didStr = (string)$did;
+            $record = $this->findAbuseDid($didStr);
+
+            if ($record) {
+                $cleanNumber = $this->cleanPhone($didStr);
+                $record->delete();
+                if (!empty($cleanNumber)) {
+                    AbuseDid::where('phone_number', $cleanNumber)
+                        ->orWhere('phone_number', '+' . $cleanNumber)
+                        ->delete();
+                }
+                $deletedCount++;
+                $results[] = [
+                    'did'     => $didStr,
+                    'deleted' => true,
+                    'status'  => 'Not-Available',
+                    'message' => "Reset and deleted.",
+                ];
+            } else {
+                $results[] = [
+                    'did'     => $didStr,
+                    'deleted' => false,
+                    'status'  => 'Not-Available',
+                    'message' => "Not found.",
+                ];
+            }
+        }
+
+        return response()->json([
+            'success'       => true,
+            'message'       => "Batch reset completed: {$deletedCount} records deleted.",
+            'total'         => count($dids),
+            'deleted_count' => $deletedCount,
+            'results'       => $results,
+        ]);
+    }
+
+    /**
      * List all recorded Abuse DIDs
      * 
      * Example: GET /api/abuse-did/list

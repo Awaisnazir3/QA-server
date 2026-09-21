@@ -336,21 +336,31 @@ class AbuseDetectorController extends Controller
     }
 
     /**
-     * Reset hit counter for a DID
+     * Reset and remove a DID from the abuse table
      */
-    public function resetHits(AbuseDid $abuseDid)
+    public function reset(AbuseDid $abuseDid)
     {
-        $abuseDid->update([
-            'hits_count' => 1,
-            'last_hit_at' => now(),
-        ]);
+        $phone = $abuseDid->phone_number;
+        $abuseDid->delete();
 
-        if (request()->wantsJson()) {
-            return response()->json(['success' => true, 'message' => 'Hits counter reset to 1.']);
+        if (request()->wantsJson() || request()->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "DID {$phone} reset and deleted from abuse detector.",
+                'did' => $phone,
+            ]);
         }
 
         return redirect()->route('abuse-dids.index')
-            ->with('success', "Hits counter for DID {$abuseDid->phone_number} reset to 1.");
+            ->with('success', "DID {$phone} has been reset and removed.");
+    }
+
+    /**
+     * Reset hit counter / remove DID (backward compatibility alias)
+     */
+    public function resetHits(AbuseDid $abuseDid)
+    {
+        return $this->reset($abuseDid);
     }
 
     /**
@@ -361,8 +371,12 @@ class AbuseDetectorController extends Controller
         $phone = $abuseDid->phone_number;
         $abuseDid->delete();
 
-        if (request()->wantsJson()) {
-            return response()->json(['success' => true, 'message' => "Deleted DID {$phone} from abuse table."]);
+        if (request()->wantsJson() || request()->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Deleted DID {$phone} from abuse detector.",
+                'did' => $phone,
+            ]);
         }
 
         return redirect()->route('abuse-dids.index')

@@ -86,6 +86,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/api/abuse-dids/stream', [AbuseDetectorController::class, 'stream'])->name('api.abuse-dids.stream');
     Route::post('/abuse-dids/add', [AbuseDetectorController::class, 'addSingle'])->name('abuse-dids.add');
     Route::post('/abuse-dids/parse-logs', [AbuseDetectorController::class, 'parseCustomLogs'])->name('abuse-dids.parse-logs');
+    Route::post('/abuse-dids/{abuseDid}/reset', [AbuseDetectorController::class, 'reset'])->name('abuse-dids.reset');
     Route::post('/abuse-dids/{abuseDid}/reset-hits', [AbuseDetectorController::class, 'resetHits'])->name('abuse-dids.reset-hits');
     Route::delete('/abuse-dids/clear-all', [AbuseDetectorController::class, 'clearAll'])->name('abuse-dids.clear-all');
     Route::delete('/abuse-dids/{abuseDid}', [AbuseDetectorController::class, 'destroy'])->name('abuse-dids.destroy');

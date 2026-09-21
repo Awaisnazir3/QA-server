@@ -115,9 +115,9 @@
                         <col class="w-[14%]">
                         <col class="w-[8%]">
                         <col class="w-[10%]">
-                        <col class="w-[13%]">
                         <col class="w-[12%]">
-                        <col class="w-[5%]">
+                        <col class="w-[11%]">
+                        <col class="w-[7%]">
                     </colgroup>
                     <thead class="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 shadow-xs">
                         <tr class="h-8 text-[11px] font-mono font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -129,7 +129,7 @@
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70 text-center">Status</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">First Detected</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Last Hit</th>
-                            <th class="py-2 px-3 text-center">Action</th>
+                            <th class="py-2 px-3 text-right">Action</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-xs" id="abuseTableBody">
@@ -166,9 +166,9 @@
                         <col class="w-[14%]">
                         <col class="w-[8%]">
                         <col class="w-[10%]">
-                        <col class="w-[13%]">
                         <col class="w-[12%]">
-                        <col class="w-[5%]">
+                        <col class="w-[11%]">
+                        <col class="w-[7%]">
                     </colgroup>
                     <thead class="sticky top-0 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                         <tr class="h-8">
@@ -180,7 +180,7 @@
                             <th class="py-2 px-3 text-center border-r border-slate-200/70 dark:border-slate-700/70">Status</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">First Hit</th>
                             <th class="py-2 px-3 border-r border-slate-200/70 dark:border-slate-700/70">Last Activity</th>
-                            <th class="py-2 px-3 text-center">Action</th>
+                            <th class="py-2 px-3 text-right">Action</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-800" id="top5TableBody">
@@ -214,14 +214,15 @@
                                 </td>
                                 <td class="py-2 px-3 text-[var(--ink3)] text-[11px] border-r border-slate-100 dark:border-slate-800/60">{{ $tDid->first_hit_at ? $tDid->first_hit_at->format('M d, H:i:s') : '—' }}</td>
                                 <td class="py-2 px-3 text-[var(--ink1)] text-[11px] border-r border-slate-100 dark:border-slate-800/60" id="top5-lasthit-{{ $tDid->phone_number }}">{{ $tDid->last_hit_at ? $tDid->last_hit_at->diffForHumans() : '—' }}</td>
-                                <td class="py-2 px-3 text-center">
-                                    <form method="POST" action="{{ route('abuse-dids.destroy', $tDid->id) }}" class="m-0 inline" onsubmit="return confirm('Delete DID {{ $tDid->phone_number }}?')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn-dense btn-dense-del px-1.5" title="Delete record">
-                                            <i class="fa-solid fa-trash-can text-[10px]"></i>
+                                <td class="py-2 px-3 text-right">
+                                    <div class="inline-flex items-center justify-end gap-1">
+                                        <button type="button" class="btn-dense btn-dense-ghost px-1.5" onclick="resetAbuseDid({{ $tDid->id }}, '{{ $tDid->phone_number }}')" title="Reset / Delete DID">
+                                            <i class="fa-solid fa-rotate-left text-[9.5px]"></i>
                                         </button>
-                                    </form>
+                                        <button type="button" class="btn-dense btn-dense-del px-1.5" onclick="deleteAbuseDid({{ $tDid->id }}, '{{ $tDid->phone_number }}')" title="Delete record">
+                                            <i class="fa-solid fa-trash-can text-[9.5px]"></i>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         @empty
@@ -409,13 +410,11 @@ function renderTop5(top5) {
         return;
     }
 
-    var csrfToken = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
     var html = '';
 
     top5.forEach(function(did, idx) {
         var phone = String(did.phone_number);
         var hits = parseInt(did.hits_count) || 1;
-        var deleteUrl = '{{ url("/abuse-dids") }}/' + did.id;
         var trunkName = did.source_dns || did.source_trunk || '—';
         var ipStr = did.source_ip || '—';
 
@@ -446,14 +445,15 @@ function renderTop5(top5) {
                 </td>
                 <td class="px-3 text-[var(--ink3)] text-[11px]">${escapeHtml(did.first_hit_at || '—')}</td>
                 <td class="px-3 text-[var(--ink1)] text-[11px]" id="top5-lasthit-${escapeHtml(phone)}">${escapeHtml(did.last_hit_human || did.last_hit_at || 'Just now')}</td>
-                <td class="px-3 text-right">
-                    <form method="POST" action="${deleteUrl}" class="m-0 inline" onsubmit="return confirm('Delete DID ${escapeHtml(phone)}?')">
-                        <input type="hidden" name="_token" value="${csrfToken}">
-                        <input type="hidden" name="_method" value="DELETE">
-                        <button type="submit" class="btn-dense btn-dense-del px-1.5" title="Delete record">
-                            <i class="fa-solid fa-trash-can text-[10px]"></i>
+                <td class="py-2 px-3 text-right">
+                    <div class="inline-flex items-center justify-end gap-1">
+                        <button type="button" class="btn-dense btn-dense-ghost px-1.5" onclick="resetAbuseDid(${did.id}, '${escapeHtml(phone)}')" title="Reset / Delete DID">
+                            <i class="fa-solid fa-rotate-left text-[9.5px]"></i>
                         </button>
-                    </form>
+                        <button type="button" class="btn-dense btn-dense-del px-1.5" onclick="deleteAbuseDid(${did.id}, '${escapeHtml(phone)}')" title="Delete record">
+                            <i class="fa-solid fa-trash-can text-[9.5px]"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>
         `;
@@ -508,14 +508,12 @@ function renderCurrentPage() {
     document.getElementById('paginationInfo').innerText =
         'Showing ' + (startIdx + 1) + ' to ' + endIdx + ' of ' + totalItems + ' detected DIDs';
 
-    var csrfToken = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
     var html = '';
 
     pageItems.forEach(function(did, idx) {
         var overallIdx = totalItems - (startIdx + idx);
         var phone = String(did.phone_number);
         var hits = parseInt(did.hits_count) || 1;
-        var deleteUrl = '{{ url("/abuse-dids") }}/' + did.id;
         var trunkName = did.source_dns || did.source_trunk || '—';
         var ipStr = did.source_ip || '—';
 
@@ -546,20 +544,106 @@ function renderCurrentPage() {
                 </td>
                 <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 text-[var(--ink3)] text-[11px]">${escapeHtml(did.first_hit_at || '—')}</td>
                 <td class="py-2 px-3 border-r border-slate-100 dark:border-slate-800/60 text-[var(--ink1)] text-[11px]">${escapeHtml(did.last_hit_human || did.last_hit_at || '—')}</td>
-                <td class="py-2 px-3 text-center">
-                    <form method="POST" action="${deleteUrl}" class="m-0 inline" onsubmit="return confirm('Delete DID ${escapeHtml(phone)}?')">
-                        <input type="hidden" name="_token" value="${csrfToken}">
-                        <input type="hidden" name="_method" value="DELETE">
-                        <button type="submit" class="btn-dense btn-dense-del px-1.5" title="Delete record">
-                            <i class="fa-solid fa-trash-can text-[10px]"></i>
+                <td class="py-2 px-3 text-right">
+                    <div class="inline-flex items-center justify-end gap-1">
+                        <button type="button" class="btn-dense btn-dense-ghost px-1.5" onclick="resetAbuseDid(${did.id}, '${escapeHtml(phone)}')" title="Reset / Delete DID">
+                            <i class="fa-solid fa-rotate-left text-[9.5px]"></i>
                         </button>
-                    </form>
+                        <button type="button" class="btn-dense btn-dense-del px-1.5" onclick="deleteAbuseDid(${did.id}, '${escapeHtml(phone)}')" title="Delete record">
+                            <i class="fa-solid fa-trash-can text-[9.5px]"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>
         `;
     });
 
     tbody.innerHTML = html;
+}
+
+function resetAbuseDid(id, phone) {
+    if (!confirm('Reset and delete DID ' + phone + ' from abuse list?')) {
+        return;
+    }
+    executeDeleteOrReset('{{ url("/abuse-dids") }}/' + id + '/reset', id, phone, 'reset');
+}
+
+function deleteAbuseDid(id, phone) {
+    if (!confirm('Delete DID ' + phone + ' from abuse list?')) {
+        return;
+    }
+    executeDeleteOrReset('{{ url("/abuse-dids") }}/' + id, id, phone, 'delete');
+}
+
+function executeDeleteOrReset(url, id, phone, type) {
+    var csrfToken = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
+
+    fetch(url, {
+        method: type === 'delete' ? 'DELETE' : 'POST',
+        headers: {
+            'X-CSRF-TOKEN': csrfToken,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ _token: csrfToken, _method: type === 'delete' ? 'DELETE' : 'POST' })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.success) {
+            // Remove from local dataset immediately
+            allDidsData = allDidsData.filter(function(item) {
+                return String(item.id) !== String(id) && String(item.phone_number) !== String(phone);
+            });
+            delete lastKnownHits[phone];
+
+            // Re-filter and render
+            applyFilterAndPaginate();
+
+            // Recalculate summary stats locally
+            var totalCount = allDidsData.length;
+            var totalHits = allDidsData.reduce(function(sum, item) { return sum + (parseInt(item.hits_count) || 0); }, 0);
+            var topDidItem = allDidsData[0] || null;
+
+            var statTotalDids = document.getElementById('statTotalDids');
+            if (statTotalDids) statTotalDids.innerText = totalCount;
+            var statTotalHits = document.getElementById('statTotalHits');
+            if (statTotalHits) statTotalHits.innerText = totalHits;
+            var tabBadge = document.getElementById('tabAbuseBadge');
+            if (tabBadge) tabBadge.innerText = totalCount;
+
+            var topText = topDidItem ? topDidItem.phone_number : '—';
+            if (topDidItem && topDidItem.hits_count > 0) topText += ' (' + topDidItem.hits_count + ' hits)';
+            var statTopDid = document.getElementById('statTopDid');
+            if (statTopDid) statTopDid.innerText = topText;
+
+            // Re-render top 5
+            renderTop5(allDidsData.slice(0, 5));
+        } else {
+            alert(data.message || 'Action failed.');
+        }
+    })
+    .catch(function(err) {
+        console.error(err);
+        // Fallback form post
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = url;
+        var tokenInput = document.createElement('input');
+        tokenInput.type = 'hidden';
+        tokenInput.name = '_token';
+        tokenInput.value = csrfToken;
+        form.appendChild(tokenInput);
+        if (type === 'delete') {
+            var methodInput = document.createElement('input');
+            methodInput.type = 'hidden';
+            methodInput.name = '_method';
+            methodInput.value = 'DELETE';
+            form.appendChild(methodInput);
+        }
+        document.body.appendChild(form);
+        form.submit();
+    });
 }
 
 function renderPaginationControls() {
